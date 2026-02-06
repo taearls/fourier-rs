@@ -11,6 +11,7 @@ pub struct AudioDevice {
 }
 
 /// List all available input (capture) devices.
+#[allow(clippy::option_if_let_else)]
 pub fn list_input_devices() -> Vec<AudioDevice> {
     let host = cpal::default_host();
     match host.input_devices() {
@@ -29,6 +30,7 @@ pub fn list_input_devices() -> Vec<AudioDevice> {
 }
 
 /// List all available output (playback) devices.
+#[allow(clippy::option_if_let_else)]
 pub fn list_output_devices() -> Vec<AudioDevice> {
     let host = cpal::default_host();
     match host.output_devices() {

@@ -78,11 +78,13 @@ impl RingConsumer {
 // blanket `Send` impl on `Caching` because it is generic over `R: RbRef`
 // without a `Send` bound, but for our concrete type (`Arc<HeapRb<f32>>`),
 // sending across threads is sound.
+#[allow(unsafe_code)]
 unsafe impl Send for RingProducer {}
 
 // SAFETY: Same reasoning as `RingProducer` above — `RingConsumer` wraps
 // `ringbuf::HeapCons<f32>` (`CachingCons<Arc<HeapRb<f32>>>`), which is
 // safe to send across threads for the same reasons.
+#[allow(unsafe_code)]
 unsafe impl Send for RingConsumer {}
 
 #[cfg(test)]

@@ -60,7 +60,11 @@ pub fn detect_peaks(
     }
 
     // Sort by magnitude descending.
-    peaks.sort_by(|a, b| b.magnitude.partial_cmp(&a.magnitude).unwrap());
+    peaks.sort_by(|a, b| {
+        b.magnitude
+            .partial_cmp(&a.magnitude)
+            .unwrap_or(std::cmp::Ordering::Equal)
+    });
     peaks
 }
 

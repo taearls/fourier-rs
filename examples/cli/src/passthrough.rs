@@ -1,3 +1,4 @@
+#![allow(clippy::expect_used)]
 //! passthrough: Capture audio, run through FFT → identity → IFFT,
 //! and play back through the default output device.
 //!
@@ -31,7 +32,7 @@ fn main() {
         .expect("No default input config");
     let sample_rate = input_config.sample_rate().0;
     let channels = input_config.channels();
-    println!("Sample rate: {} Hz, Channels: {}\n", sample_rate, channels);
+    println!("Sample rate: {sample_rate} Hz, Channels: {channels}\n");
 
     let fft_size = 2048;
     let hop_size = 1024;
@@ -54,7 +55,7 @@ fn main() {
             move |data: &[f32], _: &cpal::InputCallbackInfo| {
                 input_producer.push_slice(data);
             },
-            |err| eprintln!("Input error: {}", err),
+            |err| eprintln!("Input error: {err}"),
             None,
         )
         .expect("Failed to build input stream");
@@ -75,7 +76,7 @@ fn main() {
                     *s = 0.0;
                 }
             },
-            |err| eprintln!("Output error: {}", err),
+            |err| eprintln!("Output error: {err}"),
             None,
         )
         .expect("Failed to build output stream");

@@ -10,3 +10,6 @@ crate-type = ["cdylib", "staticlib", "lib"]
 
 [dependencies]
 fourier-engine.workspace = true
+
+[lints]
+workspace = true

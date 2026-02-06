@@ -151,7 +151,7 @@ impl OverlapAddProcessor {
     }
 
     /// Number of output samples available for reading.
-    pub fn available_samples(&self) -> usize {
+    pub const fn available_samples(&self) -> usize {
         if self.output_write_pos >= self.output_read_pos {
             self.output_write_pos - self.output_read_pos
         } else {
@@ -164,7 +164,7 @@ impl OverlapAddProcessor {
         &self.latest_spectrum
     }
 
-    pub fn config(&self) -> &OlaConfig {
+    pub const fn config(&self) -> &OlaConfig {
         &self.config
     }
 
@@ -281,8 +281,7 @@ mod tests {
             let ratio = output_energy / input_energy;
             assert!(
                 ratio < 0.01,
-                "low-pass should remove 5kHz signal, energy ratio: {}",
-                ratio
+                "low-pass should remove 5kHz signal, energy ratio: {ratio}"
             );
         }
     }

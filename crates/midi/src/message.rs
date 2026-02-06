@@ -18,7 +18,7 @@ pub struct MidiEvent {
 }
 
 impl MidiEvent {
-    /// Parse a raw MIDI message (1–3 bytes) into a MidiEvent.
+    /// Parse a raw MIDI message (1–3 bytes) into a `MidiEvent`.
     pub fn from_raw(data: &[u8], timestamp_us: u64) -> Option<Self> {
         if data.is_empty() {
             return None;
@@ -41,23 +41,23 @@ impl MidiEvent {
     }
 
     /// Check if this is a Note On event (status 0x90 with velocity > 0).
-    pub fn is_note_on(&self) -> bool {
+    pub const fn is_note_on(&self) -> bool {
         self.status == 0x90 && self.velocity > 0
     }
 
     /// Check if this is a Note Off event (status 0x80, or Note On with velocity 0).
-    pub fn is_note_off(&self) -> bool {
+    pub const fn is_note_off(&self) -> bool {
         self.status == 0x80 || (self.status == 0x90 && self.velocity == 0)
     }
 
     /// Check if this is a Control Change event.
-    pub fn is_control_change(&self) -> bool {
+    pub const fn is_control_change(&self) -> bool {
         self.status == 0xB0
     }
 
     /// For Note On/Off events, get the frequency in Hz.
     pub fn frequency_hz(&self) -> f32 {
-        super::convert::midi_to_frequency(self.note as f32)
+        super::convert::midi_to_frequency(f32::from(self.note))
     }
 }
 
@@ -77,6 +77,7 @@ pub fn midi_channel(capacity: usize) -> (MidiEventSender, MidiEventReceiver) {
 }
 
 #[cfg(test)]
+#[allow(clippy::unwrap_used, clippy::expect_used)]
 mod tests {
     use super::*;
 

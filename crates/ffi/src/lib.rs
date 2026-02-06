@@ -1,3 +1,4 @@
+#![allow(unsafe_code)]
 //! fourier-ffi: C-ABI exports for Swift/native UI integration.
 //!
 //! Exposes the engine's functionality through `extern "C"` functions that
@@ -148,9 +149,8 @@ pub unsafe extern "C" fn engine_get_spectrum(
     out_magnitudes: *mut f32,
     max_bins: usize,
 ) -> usize {
-    let ffi = match unsafe { handle.as_ref() } {
-        Some(f) => f,
-        None => return 0,
+    let Some(ffi) = (unsafe { handle.as_ref() }) else {
+        return 0;
     };
 
     if out_magnitudes.is_null() {
@@ -170,6 +170,7 @@ pub unsafe extern "C" fn engine_get_spectrum(
 }
 
 #[cfg(test)]
+#[allow(clippy::unwrap_used, clippy::expect_used)]
 mod tests {
     use super::*;
 
@@ -186,7 +187,7 @@ mod tests {
     fn ffi_destroy_null_is_safe() {
         // Destroying a null pointer should not panic.
         unsafe {
-            engine_destroy(std::ptr::null_mut());
+            engine_destroy(ptr::null_mut());
         }
     }
 
@@ -225,7 +226,7 @@ mod tests {
     #[test]
     fn ffi_get_spectrum_null_handle() {
         let mut buf = vec![0.0_f32; 256];
-        let n = unsafe { engine_get_spectrum(std::ptr::null_mut(), buf.as_mut_ptr(), buf.len()) };
+        let n = unsafe { engine_get_spectrum(ptr::null_mut(), buf.as_mut_ptr(), buf.len()) };
         assert_eq!(n, 0);
     }
 
@@ -234,7 +235,7 @@ mod tests {
         let handle = engine_create(44100.0, 256, 128);
         assert!(!handle.is_null());
 
-        let n = unsafe { engine_get_spectrum(handle, std::ptr::null_mut(), 256) };
+        let n = unsafe { engine_get_spectrum(handle, ptr::null_mut(), 256) };
         assert_eq!(n, 0);
 
         unsafe {
@@ -246,12 +247,12 @@ mod tests {
     fn ffi_operations_on_null_handle() {
         // All operations on null handle should be no-ops, not panics.
         unsafe {
-            engine_set_gain(std::ptr::null_mut(), 1.0);
-            engine_set_bypass(std::ptr::null_mut(), true);
-            engine_set_lowpass(std::ptr::null_mut(), 1000.0);
-            engine_set_highpass(std::ptr::null_mut(), 500.0);
-            engine_set_bandpass(std::ptr::null_mut(), 200.0, 2000.0);
-            engine_set_identity(std::ptr::null_mut());
+            engine_set_gain(ptr::null_mut(), 1.0);
+            engine_set_bypass(ptr::null_mut(), true);
+            engine_set_lowpass(ptr::null_mut(), 1000.0);
+            engine_set_highpass(ptr::null_mut(), 500.0);
+            engine_set_bandpass(ptr::null_mut(), 200.0, 2000.0);
+            engine_set_identity(ptr::null_mut());
         }
     }
 }

@@ -1,3 +1,4 @@
+#![allow(clippy::expect_used)]
 //! capture-fft: Capture audio from the default input device, run FFT,
 //! and print the peak frequency to the terminal.
 //!
@@ -26,7 +27,7 @@ fn main() {
         .expect("No default input config");
     let sample_rate = supported_config.sample_rate().0 as f32;
     let channels = supported_config.channels() as usize;
-    println!("Sample rate: {} Hz, Channels: {}\n", sample_rate, channels);
+    println!("Sample rate: {sample_rate} Hz, Channels: {channels}\n");
 
     let fft_size: usize = 2048;
     let ring_capacity = fft_size * 4;
@@ -51,7 +52,7 @@ fn main() {
                     }
                 }
             },
-            |err| eprintln!("Input stream error: {}", err),
+            |err| eprintln!("Input stream error: {err}"),
             None,
         )
         .expect("Failed to build input stream");

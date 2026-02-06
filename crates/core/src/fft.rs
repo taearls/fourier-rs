@@ -49,12 +49,12 @@ impl FftProcessor {
     /// Number of complex frequency bins produced by the forward FFT.
     /// For a real-valued FFT of size N, this is N/2 + 1.
     #[inline]
-    pub fn complex_bins(&self) -> usize {
+    pub const fn complex_bins(&self) -> usize {
         self.fft_size / 2 + 1
     }
 
     #[inline]
-    pub fn fft_size(&self) -> usize {
+    pub const fn fft_size(&self) -> usize {
         self.fft_size
     }
 
@@ -62,6 +62,7 @@ impl FftProcessor {
     ///
     /// - `input`: mutable slice of length `fft_size` (will be modified in-place by realfft).
     /// - `output`: slice of length `fft_size/2 + 1` to receive complex spectrum.
+    #[allow(clippy::expect_used)]
     pub fn forward(&mut self, input: &mut [f32], output: &mut [Complex<f32>]) {
         debug_assert_eq!(input.len(), self.fft_size);
         debug_assert_eq!(output.len(), self.complex_bins());
@@ -77,6 +78,7 @@ impl FftProcessor {
     ///
     /// - `input`: mutable slice of length `fft_size/2 + 1` (modified in-place by realfft).
     /// - `output`: slice of length `fft_size` to receive time-domain samples.
+    #[allow(clippy::expect_used)]
     pub fn inverse(&mut self, input: &mut [Complex<f32>], output: &mut [f32]) {
         debug_assert_eq!(input.len(), self.complex_bins());
         debug_assert_eq!(output.len(), self.fft_size);
@@ -115,8 +117,10 @@ mod tests {
         let mut input: Vec<f32> = (0..fft_size)
             .map(|i| {
                 let t = i as f32 / fft_size as f32;
-                (2.0 * std::f32::consts::PI * 100.0 * t).sin()
-                    + 0.5 * (2.0 * std::f32::consts::PI * 300.0 * t).sin()
+                0.5f32.mul_add(
+                    (2.0 * std::f32::consts::PI * 300.0 * t).sin(),
+                    (2.0 * std::f32::consts::PI * 100.0 * t).sin(),
+                )
             })
             .collect();
 
@@ -130,10 +134,7 @@ mod tests {
         for (i, (&orig, &recon)) in original.iter().zip(input.iter()).enumerate() {
             assert!(
                 (orig - recon).abs() < 1e-4,
-                "mismatch at sample {}: orig={}, recon={}",
-                i,
-                orig,
-                recon
+                "mismatch at sample {i}: orig={orig}, recon={recon}"
             );
         }
     }

@@ -46,5 +46,5 @@ pub enum TransformSpec {
     HighPass { cutoff_hz: f32 },
     BandPass { low_hz: f32, high_hz: f32 },
     Gain { factor: f32 },
-    Chain(Vec<TransformSpec>),
+    Chain(Vec<Self>),
 }

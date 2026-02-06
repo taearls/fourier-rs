@@ -53,7 +53,7 @@ impl AudioStream {
         // Check supported format
         let supported = device
             .supported_input_configs()
-            .map_err(|e| format!("Failed to query input configs: {}", e))?;
+            .map_err(|e| format!("Failed to query input configs: {e}"))?;
 
         let _format = supported
             .into_iter()
@@ -70,15 +70,15 @@ impl AudioStream {
                     producer.push_slice(data);
                 },
                 |err| {
-                    eprintln!("Audio input error: {}", err);
+                    eprintln!("Audio input error: {err}");
                 },
                 None,
             )
-            .map_err(|e| format!("Failed to build input stream: {}", e))?;
+            .map_err(|e| format!("Failed to build input stream: {e}"))?;
 
         stream
             .play()
-            .map_err(|e| format!("Failed to start input: {}", e))?;
+            .map_err(|e| format!("Failed to start input: {e}"))?;
 
         Ok(Self {
             _input_stream: Some(stream),
@@ -114,15 +114,15 @@ impl AudioStream {
                     }
                 },
                 |err| {
-                    eprintln!("Audio output error: {}", err);
+                    eprintln!("Audio output error: {err}");
                 },
                 None,
             )
-            .map_err(|e| format!("Failed to build output stream: {}", e))?;
+            .map_err(|e| format!("Failed to build output stream: {e}"))?;
 
         stream
             .play()
-            .map_err(|e| format!("Failed to start output: {}", e))?;
+            .map_err(|e| format!("Failed to start output: {e}"))?;
 
         Ok(Self {
             _input_stream: None,

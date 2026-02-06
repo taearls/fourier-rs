@@ -18,7 +18,7 @@ pub enum WindowType {
 /// A pre-computed window function table.
 #[derive(Debug, Clone)]
 pub struct WindowFunction {
-    /// The window coefficients, length == fft_size.
+    /// The window coefficients, length == `fft_size`.
     table: Vec<f32>,
     window_type: WindowType,
 }
@@ -58,11 +58,11 @@ impl WindowFunction {
         }
     }
 
-    pub fn size(&self) -> usize {
+    pub const fn size(&self) -> usize {
         self.table.len()
     }
 
-    pub fn window_type(&self) -> WindowType {
+    pub const fn window_type(&self) -> WindowType {
         self.window_type
     }
 
@@ -92,7 +92,7 @@ impl WindowFunction {
         (0..size)
             .map(|i| {
                 let phase = 2.0 * PI * i as f32 / size as f32;
-                0.54 - 0.46 * phase.cos()
+                0.46f32.mul_add(-phase.cos(), 0.54)
             })
             .collect()
     }
@@ -101,7 +101,7 @@ impl WindowFunction {
         (0..size)
             .map(|i| {
                 let phase = 2.0 * PI * i as f32 / size as f32;
-                0.42 - 0.5 * phase.cos() + 0.08 * (2.0 * phase).cos()
+                0.08f32.mul_add((2.0 * phase).cos(), 0.5f32.mul_add(-phase.cos(), 0.42))
             })
             .collect()
     }

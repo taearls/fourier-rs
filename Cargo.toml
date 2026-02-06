@@ -39,3 +39,24 @@ fourier-audio-io = { path = "crates/audio-io" }
 fourier-midi = { path = "crates/midi" }
 fourier-engine = { path = "crates/engine" }
 fourier-ffi = { path = "crates/ffi" }
+
+[workspace.lints.rust]
+unsafe_code = "warn"
+unused_qualifications = "warn"
+
+[workspace.lints.clippy]
+all = { level = "warn", priority = -1 }
+pedantic = { level = "warn", priority = -1 }
+nursery = { level = "warn", priority = -1 }
+unwrap_used = "warn"
+expect_used = "warn"
+# Pedantic overrides — allow these common patterns
+module_name_repetitions = "allow"
+must_use_candidate = "allow"
+missing_errors_doc = "allow"
+missing_panics_doc = "allow"
+cast_possible_truncation = "allow"
+cast_sign_loss = "allow"
+cast_precision_loss = "allow"
+cast_possible_wrap = "allow"
+float_cmp = "allow"
