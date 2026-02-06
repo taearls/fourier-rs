@@ -20,11 +20,12 @@ use crate::AudioBuffer;
 /// [`FileIoError::UnsupportedFormat`] for sample formats other than the three
 /// listed above.
 pub fn load_wav(path: &Path) -> Result<AudioBuffer, FileIoError> {
-    if !path.exists() {
-        return Err(FileIoError::FileNotFound(path.to_path_buf()));
-    }
-
-    let reader = WavReader::open(path).map_err(|e| FileIoError::InvalidFormat(e.to_string()))?;
+    let reader = WavReader::open(path).map_err(|e| match e {
+        hound::Error::IoError(ref io_err) if io_err.kind() == std::io::ErrorKind::NotFound => {
+            FileIoError::FileNotFound(path.to_path_buf())
+        }
+        other => FileIoError::InvalidFormat(other.to_string()),
+    })?;
     let spec = reader.spec();
     let channels = spec.channels;
     let sample_rate = spec.sample_rate;
@@ -101,6 +102,9 @@ mod tests {
     use super::*;
     use hound::{WavSpec, WavWriter};
     use std::path::PathBuf;
+    use std::sync::atomic::{AtomicU64, Ordering};
+
+    static TEST_COUNTER: AtomicU64 = AtomicU64::new(0);
 
     /// Helper: write a WAV file to a temp path and return the path.
     fn write_test_wav(
@@ -109,13 +113,8 @@ mod tests {
     ) -> PathBuf {
         let dir = std::env::temp_dir().join("fourier-file-io-tests");
         std::fs::create_dir_all(&dir).unwrap();
-        let path = dir.join(format!(
-            "test_{}.wav",
-            std::time::SystemTime::now()
-                .duration_since(std::time::UNIX_EPOCH)
-                .unwrap()
-                .as_nanos()
-        ));
+        let id = TEST_COUNTER.fetch_add(1, Ordering::Relaxed);
+        let path = dir.join(format!("test_{id}.wav"));
         let mut writer = WavWriter::create(&path, spec).unwrap();
         write_samples(&mut writer);
         writer.finalize().unwrap();
