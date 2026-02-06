@@ -8,3 +8,6 @@ description = "MIDI I/O, frequency-MIDI conversion, message routing"
 [dependencies]
 midir.workspace = true
 crossbeam-channel.workspace = true
+
+[lints]
+workspace = true

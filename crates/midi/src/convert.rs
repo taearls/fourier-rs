@@ -1,7 +1,7 @@
 //! Frequency ↔ MIDI note conversion utilities.
 //!
 //! Standard tuning: A4 = 440 Hz = MIDI note 69.
-//! Formula: midi_note = 69 + 12 * log2(freq / 440)
+//! Formula: `midi_note` = 69 + 12 * log2(freq / 440)
 
 /// Convert a frequency in Hz to a MIDI note number (floating-point for
 /// pitch accuracy; round to nearest integer for standard note).
@@ -11,14 +11,14 @@ pub fn frequency_to_midi(frequency_hz: f32) -> Option<f32> {
     if frequency_hz <= 0.0 {
         return None;
     }
-    Some(69.0 + 12.0 * (frequency_hz / 440.0).log2())
+    Some(12.0f32.mul_add((frequency_hz / 440.0).log2(), 69.0))
 }
 
 /// Convert a MIDI note number to frequency in Hz.
 ///
 /// Accepts fractional note numbers for microtonal accuracy.
 pub fn midi_to_frequency(midi_note: f32) -> f32 {
-    440.0 * 2.0_f32.powf((midi_note - 69.0) / 12.0)
+    440.0 * ((midi_note - 69.0) / 12.0).exp2()
 }
 
 /// Get the standard note name for a MIDI note number.
@@ -28,12 +28,13 @@ pub fn midi_note_name(midi_note: u8) -> String {
     const NAMES: [&str; 12] = [
         "C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B",
     ];
-    let octave = (midi_note as i32 / 12) - 1;
+    let octave = (i32::from(midi_note) / 12) - 1;
     let name = NAMES[midi_note as usize % 12];
-    format!("{}{}", name, octave)
+    format!("{name}{octave}")
 }
 
 #[cfg(test)]
+#[allow(clippy::unwrap_used, clippy::expect_used)]
 mod tests {
     use super::*;
 

@@ -63,7 +63,7 @@ impl SpectralTransform for IdentityTransform {
         // No-op.
     }
 
-    fn name(&self) -> &str {
+    fn name(&self) -> &'static str {
         "Identity"
     }
 }
@@ -84,7 +84,7 @@ impl SpectralTransform for LowPassFilter {
         }
     }
 
-    fn name(&self) -> &str {
+    fn name(&self) -> &'static str {
         "Low-Pass Filter"
     }
 }
@@ -105,12 +105,12 @@ impl SpectralTransform for HighPassFilter {
         }
     }
 
-    fn name(&self) -> &str {
+    fn name(&self) -> &'static str {
         "High-Pass Filter"
     }
 }
 
-/// Band-pass filter: keep only bins within [low_hz, high_hz].
+/// Band-pass filter: keep only bins within [`low_hz`, `high_hz`].
 pub struct BandPassFilter {
     pub low_hz: f32,
     pub high_hz: f32,
@@ -127,7 +127,7 @@ impl SpectralTransform for BandPassFilter {
         }
     }
 
-    fn name(&self) -> &str {
+    fn name(&self) -> &'static str {
         "Band-Pass Filter"
     }
 }
@@ -144,7 +144,7 @@ impl SpectralTransform for SpectralGain {
         }
     }
 
-    fn name(&self) -> &str {
+    fn name(&self) -> &'static str {
         "Spectral Gain"
     }
 }
@@ -187,7 +187,7 @@ impl SpectralTransform for TransformChain {
         }
     }
 
-    fn name(&self) -> &str {
+    fn name(&self) -> &'static str {
         "Transform Chain"
     }
 }
@@ -210,17 +210,11 @@ mod tests {
         for (i, bin) in spectrum.iter().enumerate() {
             let freq = i as f32 * bin_width;
             if freq > 1000.0 {
-                assert!(
-                    bin.norm() < 1e-6,
-                    "bin {} at {:.1} Hz should be zero",
-                    i,
-                    freq
-                );
+                assert!(bin.norm() < 1e-6, "bin {i} at {freq:.1} Hz should be zero");
             } else {
                 assert!(
                     (bin.norm() - 1.0).abs() < 1e-6,
-                    "bin {} should be untouched",
-                    i
+                    "bin {i} should be untouched"
                 );
             }
         }

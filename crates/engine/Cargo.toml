@@ -12,3 +12,6 @@ fourier-midi.workspace = true
 ringbuf.workspace = true
 crossbeam-channel.workspace = true
 cpal.workspace = true
+
+[lints]
+workspace = true

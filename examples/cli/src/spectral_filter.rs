@@ -1,3 +1,4 @@
+#![allow(clippy::expect_used)]
 //! spectral-filter: Apply a spectral filter to live audio.
 //!
 //! Usage: spectral-filter [lowpass|highpass|bandpass] [freq1] [freq2]
@@ -17,7 +18,7 @@ fn main() {
 
     let transform = parse_transform(&args);
     println!("=== spectral-filter: Real-time spectral filtering ===");
-    println!("Transform: {:?}", transform);
+    println!("Transform: {transform:?}");
     println!("Press Ctrl+C to stop.\n");
 
     let host = cpal::default_host();
@@ -35,7 +36,7 @@ fn main() {
         .default_input_config()
         .expect("No default input config");
     let sample_rate = input_config.sample_rate().0;
-    println!("Sample rate: {} Hz\n", sample_rate);
+    println!("Sample rate: {sample_rate} Hz\n");
 
     let fft_size = 2048;
     let hop_size = 1024;
@@ -57,7 +58,7 @@ fn main() {
             move |data: &[f32], _: &cpal::InputCallbackInfo| {
                 input_producer.push_slice(data);
             },
-            |err| eprintln!("Input error: {}", err),
+            |err| eprintln!("Input error: {err}"),
             None,
         )
         .expect("Failed to build input stream");
@@ -77,7 +78,7 @@ fn main() {
                     *s = 0.0;
                 }
             },
-            |err| eprintln!("Output error: {}", err),
+            |err| eprintln!("Output error: {err}"),
             None,
         )
         .expect("Failed to build output stream");
@@ -139,7 +140,7 @@ fn parse_transform(args: &[String]) -> TransformSpec {
         }
         "identity" => TransformSpec::Identity,
         other => {
-            eprintln!("Unknown filter type '{}', using identity", other);
+            eprintln!("Unknown filter type '{other}', using identity");
             TransformSpec::Identity
         }
     }

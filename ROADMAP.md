@@ -8,11 +8,11 @@
 
 ## Open Issues Summary
 
-**28 open issues** across 7 phases
+**27 open issues** across 7 phases (1 completed)
 
 | Priority | Count | Issues |
 |----------|-------|--------|
-| :red_circle: Critical | 9 | #2, #5, #13, #14, #15, #16, #17, #19, #30 |
+| :red_circle: Critical | 8 | #2, #5, #13, #14, #15, #16, #17, #19 |
 | :yellow_circle: High | 9 | #6, #7, #8, #9, #18, #20, #22, #25, #26 |
 | :green_circle: Medium | 7 | #3, #4, #11, #12, #21, #23, #24 |
 | :large_blue_circle: Low | 3 | #10, #27, #28 |
@@ -170,14 +170,14 @@ The following capabilities already exist in the codebase:
 | #26 | Add GitHub Actions CI pipeline | :yellow_circle: High | ~1 day | &mdash; |
 | #27 | Compile fourier-core to WASM target | :large_blue_circle: Low | ~2 days | #2 |
 | #28 | Add WebAudio integration layer | :large_blue_circle: Low | ~3 days | #27 |
-| #30 | Set up development infrastructure (linting, formatting, testing, CI) | :red_circle: Critical | ~2 days | &mdash; |
+| #30 | ~~Set up development infrastructure (linting, formatting, testing, CI)~~ | :white_check_mark: Done | ~2 days | &mdash; |
 
 **Key deliverables:**
 - `EngineError` enum via `thiserror`, `tracing` instrumentation
 - CI: build, test, clippy, fmt on macOS (stable + nightly)
 - WASM build of fourier-core with `wasm-bindgen` exports
 - AudioWorklet integration with example web page
-- Dev infrastructure: `rust-toolchain.toml`, `rustfmt.toml`, workspace lints, `.editorconfig`, `deny.toml`, `Justfile`
+- ~~Dev infrastructure: `rust-toolchain.toml`, `rustfmt.toml`, workspace lints, `.editorconfig`, `deny.toml`, `Justfile`~~ :white_check_mark:
 
 ---
 
@@ -207,7 +207,7 @@ All 9 critical-path issues are labeled `:red_circle: Critical` or `:yellow_circl
 
 Start with dev infrastructure and the two critical Phase 1 issues that unblock everything:
 
-1. **#30** &mdash; Set up development infrastructure (linting, formatting, testing, CI) `:red_circle:`
+1. ~~**#30** &mdash; Set up development infrastructure (linting, formatting, testing, CI)~~ `:white_check_mark:`
 2. **#2** &mdash; Add oscillator module with standard waveforms `:red_circle:`
 3. **#5** &mdash; Integrate sound generation into engine as audio source `:red_circle:`
 
@@ -226,7 +226,7 @@ These can proceed independently alongside the critical path:
 
 - **DSP track:** #9 (Parametric EQ), #11 (Freeze), #12 (Pitch shift)
 - **File I/O track:** #6, #7 (WAV read/write)
-- **Polish track:** #25, #26, #30 (error handling, CI, dev infra)
+- **Polish track:** #25, #26 (error handling, CI)
 
 ---
 
@@ -235,7 +235,7 @@ These can proceed independently alongside the critical path:
 ### Batch 1: Foundations (Week 1)
 | Order | Issue | Rationale |
 |-------|-------|-----------|
-| 1 | #30 Dev infrastructure | Establish linting, formatting, CI before new code |
+| ~~1~~ | ~~#30 Dev infrastructure~~ | ~~Establish linting, formatting, CI before new code~~ :white_check_mark: |
 | 2 | #2 Oscillator module | Unblocks all sound generation |
 | 3 | #5 Engine source integration | Connects generators to pipeline |
 | 4 | #3 Noise generators | Parallel with #5, simple module |
@@ -300,8 +300,8 @@ These can proceed independently alongside the critical path:
 | 4 &mdash; Tauri | 4 | 4 | 0 | 0 | 0 | 0 |
 | 5 &mdash; UI | 5 | 2 | 2 | 1 | 0 | 0 |
 | 6 &mdash; Workflow | 3 | 0 | 1 | 2 | 0 | 0 |
-| 7 &mdash; Polish/Web | 5 | 1 | 2 | 0 | 2 | 0 |
-| **Total** | **28** | **9** | **9** | **7** | **3** | **0** |
+| 7 &mdash; Polish/Web | 5 | 0 | 2 | 0 | 2 | 1 |
+| **Total** | **28** | **8** | **9** | **7** | **3** | **1** |
 
 ---
 
@@ -322,6 +322,7 @@ These can proceed independently alongside the critical path:
 ## Changelog
 
 ### 2026-02-06
+- **Completed #30** (dev infrastructure) &mdash; added `rust-toolchain.toml` (1.93.0), `rustfmt.toml`, `[workspace.lints]` (clippy pedantic + nursery), `.editorconfig`, `deny.toml`, `Justfile`, GitHub Actions CI (`ci.yml`), CI badge in README; fixed all clippy warnings and formatted workspace
 - **Added #30** (dev infrastructure) &mdash; linting, formatting, testing, CI setup; critical priority, Phase 7
 - Updated issue counts: 27 &rarr; 28 total, 8 &rarr; 9 critical
 - Moved #30 to Batch 1 position 1 (establish conventions before new code)

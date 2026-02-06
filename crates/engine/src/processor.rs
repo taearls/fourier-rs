@@ -77,6 +77,7 @@ impl Engine {
         };
 
         // Spawn the processing thread.
+        #[allow(clippy::expect_used)]
         let thread = thread::Builder::new()
             .name("fourier-processing".to_string())
             .spawn(move || {
@@ -108,7 +109,7 @@ impl Engine {
     pub fn send_param(&self, msg: ParamMessage) -> Result<(), String> {
         self.param_tx
             .try_send(msg)
-            .map_err(|e| format!("Failed to send param: {}", e))
+            .map_err(|e| format!("Failed to send param: {e}"))
     }
 
     /// Set the spectral transform.
@@ -149,7 +150,7 @@ impl Drop for Engine {
     }
 }
 
-/// Build a concrete SpectralTransform from a TransformSpec.
+/// Build a concrete `SpectralTransform` from a `TransformSpec`.
 fn build_transform(spec: &TransformSpec) -> Box<dyn SpectralTransform> {
     match spec {
         TransformSpec::Identity => Box::new(IdentityTransform),
@@ -175,6 +176,7 @@ fn build_transform(spec: &TransformSpec) -> Box<dyn SpectralTransform> {
 }
 
 /// The main processing loop running on its own thread.
+#[allow(clippy::needless_pass_by_value)]
 fn processing_loop(
     config: OlaConfig,
     mut input: RingConsumer,
@@ -263,6 +265,7 @@ fn processing_loop(
 }
 
 #[cfg(test)]
+#[allow(clippy::unwrap_used, clippy::expect_used)]
 mod tests {
     use super::*;
     use crate::params::TransformSpec;
@@ -286,7 +289,7 @@ mod tests {
         producer.push_slice(input);
 
         // Give the processing thread time to process.
-        std::thread::sleep(std::time::Duration::from_millis(100));
+        thread::sleep(std::time::Duration::from_millis(100));
 
         // Pull output.
         let mut output = vec![0.0_f32; input.len()];
@@ -338,7 +341,7 @@ mod tests {
         let input: Vec<f32> = (0..1024).map(|i| i as f32 / 1024.0).collect();
         producer.push_slice(&input);
 
-        std::thread::sleep(std::time::Duration::from_millis(100));
+        thread::sleep(std::time::Duration::from_millis(100));
 
         let mut output = vec![0.0_f32; 1024];
         let n = consumer.pop_slice(&mut output);
@@ -387,9 +390,7 @@ mod tests {
             // Gain 0.5 should reduce energy by ~4x (amplitude halved -> energy quartered).
             assert!(
                 energy_half < energy_unity,
-                "half-gain energy ({}) should be less than unity-gain energy ({})",
-                energy_half,
-                energy_unity
+                "half-gain energy ({energy_half}) should be less than unity-gain energy ({energy_unity})"
             );
         }
     }
@@ -430,7 +431,7 @@ mod tests {
             .collect();
         producer.push_slice(&input);
 
-        std::thread::sleep(std::time::Duration::from_millis(50));
+        thread::sleep(std::time::Duration::from_millis(50));
 
         engine.shutdown();
     }
@@ -453,7 +454,7 @@ mod tests {
         producer.push_slice(&input);
 
         // Wait for processing.
-        std::thread::sleep(std::time::Duration::from_millis(200));
+        thread::sleep(std::time::Duration::from_millis(200));
 
         // Should eventually receive a spectral snapshot.
         let mut got_snapshot = false;
@@ -465,7 +466,7 @@ mod tests {
                 got_snapshot = true;
                 break;
             }
-            std::thread::sleep(std::time::Duration::from_millis(50));
+            thread::sleep(std::time::Duration::from_millis(50));
         }
         assert!(got_snapshot, "should receive a spectral snapshot");
 

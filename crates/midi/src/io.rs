@@ -6,9 +6,8 @@ use crate::message::{MidiEvent, MidiEventSender};
 
 /// Lists available MIDI input port names.
 pub fn list_midi_input_ports() -> Vec<String> {
-    let midi_in = match midir::MidiInput::new("fourier-list-in") {
-        Ok(m) => m,
-        Err(_) => return Vec::new(),
+    let Ok(midi_in) = midir::MidiInput::new("fourier-list-in") else {
+        return Vec::new();
     };
     midi_in
         .ports()
@@ -19,9 +18,8 @@ pub fn list_midi_input_ports() -> Vec<String> {
 
 /// Lists available MIDI output port names.
 pub fn list_midi_output_ports() -> Vec<String> {
-    let midi_out = match midir::MidiOutput::new("fourier-list-out") {
-        Ok(m) => m,
-        Err(_) => return Vec::new(),
+    let Ok(midi_out) = midir::MidiOutput::new("fourier-list-out") else {
+        return Vec::new();
     };
     midi_out
         .ports()
@@ -43,12 +41,12 @@ impl MidiInput {
     /// The sender uses `try_send` to avoid blocking the MIDI callback.
     pub fn open(port_index: usize, sender: MidiEventSender) -> Result<Self, String> {
         let midi_in = midir::MidiInput::new("fourier-midi-in")
-            .map_err(|e| format!("Failed to create MIDI input: {}", e))?;
+            .map_err(|e| format!("Failed to create MIDI input: {e}"))?;
 
         let ports = midi_in.ports();
         let port = ports
             .get(port_index)
-            .ok_or_else(|| format!("MIDI input port index {} out of range", port_index))?;
+            .ok_or_else(|| format!("MIDI input port index {port_index} out of range"))?;
 
         let port_name = midi_in
             .port_name(port)
@@ -58,7 +56,7 @@ impl MidiInput {
             .connect(
                 port,
                 "fourier-in",
-                move |timestamp_us, data, _| {
+                move |timestamp_us, data, ()| {
                     if let Some(event) = MidiEvent::from_raw(data, timestamp_us) {
                         // Non-blocking send: drop event if channel is full.
                         let _ = sender.try_send(event);
@@ -66,7 +64,7 @@ impl MidiInput {
                 },
                 (),
             )
-            .map_err(|e| format!("Failed to connect MIDI input: {}", e))?;
+            .map_err(|e| format!("Failed to connect MIDI input: {e}"))?;
 
         Ok(Self {
             _connection: connection,
@@ -89,12 +87,12 @@ impl MidiOutput {
     /// Open the MIDI output port at the given index.
     pub fn open(port_index: usize) -> Result<Self, String> {
         let midi_out = midir::MidiOutput::new("fourier-midi-out")
-            .map_err(|e| format!("Failed to create MIDI output: {}", e))?;
+            .map_err(|e| format!("Failed to create MIDI output: {e}"))?;
 
         let ports = midi_out.ports();
         let port = ports
             .get(port_index)
-            .ok_or_else(|| format!("MIDI output port index {} out of range", port_index))?;
+            .ok_or_else(|| format!("MIDI output port index {port_index} out of range"))?;
 
         let port_name = midi_out
             .port_name(port)
@@ -102,7 +100,7 @@ impl MidiOutput {
 
         let connection = midi_out
             .connect(port, "fourier-out")
-            .map_err(|e| format!("Failed to connect MIDI output: {}", e))?;
+            .map_err(|e| format!("Failed to connect MIDI output: {e}"))?;
 
         Ok(Self {
             connection,
@@ -115,7 +113,7 @@ impl MidiOutput {
         let msg = [0x90 | (channel & 0x0F), note & 0x7F, velocity & 0x7F];
         self.connection
             .send(&msg)
-            .map_err(|e| format!("Failed to send Note On: {}", e))
+            .map_err(|e| format!("Failed to send Note On: {e}"))
     }
 
     /// Send a Note Off message.
@@ -123,7 +121,7 @@ impl MidiOutput {
         let msg = [0x80 | (channel & 0x0F), note & 0x7F, 0];
         self.connection
             .send(&msg)
-            .map_err(|e| format!("Failed to send Note Off: {}", e))
+            .map_err(|e| format!("Failed to send Note Off: {e}"))
     }
 
     /// Send a Control Change message.
@@ -131,14 +129,14 @@ impl MidiOutput {
         let msg = [0xB0 | (channel & 0x0F), controller & 0x7F, value & 0x7F];
         self.connection
             .send(&msg)
-            .map_err(|e| format!("Failed to send CC: {}", e))
+            .map_err(|e| format!("Failed to send CC: {e}"))
     }
 
     /// Send raw MIDI bytes.
     pub fn send_raw(&mut self, data: &[u8]) -> Result<(), String> {
         self.connection
             .send(data)
-            .map_err(|e| format!("Failed to send MIDI: {}", e))
+            .map_err(|e| format!("Failed to send MIDI: {e}"))
     }
 
     pub fn port_name(&self) -> &str {
