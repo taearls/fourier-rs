@@ -1,0 +1,14 @@
+[package]
+name = "fourier-engine"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+description = "Orchestrator: wires audio-io, core DSP, and MIDI together"
+
+[dependencies]
+fourier-core.workspace = true
+fourier-audio-io.workspace = true
+fourier-midi.workspace = true
+ringbuf.workspace = true
+crossbeam-channel.workspace = true
+cpal.workspace = true

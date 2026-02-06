@@ -1,0 +1,26 @@
+[package]
+name = "fourier-cli"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+description = "CLI tools for testing the audio-fourier pipeline"
+
+[[bin]]
+name = "capture-fft"
+path = "src/capture_fft.rs"
+
+[[bin]]
+name = "passthrough"
+path = "src/passthrough.rs"
+
+[[bin]]
+name = "spectral-filter"
+path = "src/spectral_filter.rs"
+
+[dependencies]
+fourier-core.workspace = true
+fourier-audio-io.workspace = true
+fourier-midi.workspace = true
+fourier-engine.workspace = true
+cpal.workspace = true
+ringbuf.workspace = true

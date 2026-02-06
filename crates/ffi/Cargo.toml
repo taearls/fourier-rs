@@ -1,0 +1,12 @@
+[package]
+name = "fourier-ffi"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+description = "C-ABI exports for Swift/native UI integration"
+
+[lib]
+crate-type = ["cdylib", "staticlib"]
+
+[dependencies]
+fourier-engine.workspace = true
