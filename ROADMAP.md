@@ -8,11 +8,11 @@
 
 ## Open Issues Summary
 
-**27 open issues** across 7 phases
+**28 open issues** across 7 phases
 
 | Priority | Count | Issues |
 |----------|-------|--------|
-| :red_circle: Critical | 8 | #2, #5, #13, #14, #15, #16, #17, #19 |
+| :red_circle: Critical | 9 | #2, #5, #13, #14, #15, #16, #17, #19, #30 |
 | :yellow_circle: High | 9 | #6, #7, #8, #9, #18, #20, #22, #25, #26 |
 | :green_circle: Medium | 7 | #3, #4, #11, #12, #21, #23, #24 |
 | :large_blue_circle: Low | 3 | #10, #27, #28 |
@@ -170,12 +170,14 @@ The following capabilities already exist in the codebase:
 | #26 | Add GitHub Actions CI pipeline | :yellow_circle: High | ~1 day | &mdash; |
 | #27 | Compile fourier-core to WASM target | :large_blue_circle: Low | ~2 days | #2 |
 | #28 | Add WebAudio integration layer | :large_blue_circle: Low | ~3 days | #27 |
+| #30 | Set up development infrastructure (linting, formatting, testing, CI) | :red_circle: Critical | ~2 days | &mdash; |
 
 **Key deliverables:**
 - `EngineError` enum via `thiserror`, `tracing` instrumentation
 - CI: build, test, clippy, fmt on macOS (stable + nightly)
 - WASM build of fourier-core with `wasm-bindgen` exports
 - AudioWorklet integration with example web page
+- Dev infrastructure: `rust-toolchain.toml`, `rustfmt.toml`, workspace lints, `.editorconfig`, `deny.toml`, `Justfile`
 
 ---
 
@@ -203,20 +205,20 @@ All 9 critical-path issues are labeled `:red_circle: Critical` or `:yellow_circl
 
 ### NOW (Phase 1 Start)
 
-Start with the two critical Phase 1 issues that unblock everything:
+Start with dev infrastructure and the two critical Phase 1 issues that unblock everything:
 
-1. **#2** &mdash; Add oscillator module with standard waveforms `:red_circle:`
-2. **#5** &mdash; Integrate sound generation into engine as audio source `:red_circle:`
+1. **#30** &mdash; Set up development infrastructure (linting, formatting, testing, CI) `:red_circle:`
+2. **#2** &mdash; Add oscillator module with standard waveforms `:red_circle:`
+3. **#5** &mdash; Integrate sound generation into engine as audio source `:red_circle:`
 
 ### NEXT UP
 
 Once Phase 1 criticals are done:
 
-3. **#6** &mdash; Create fourier-file-io crate with WAV reading `:yellow_circle:`
-4. **#13** &mdash; Scaffold Tauri v2 desktop application with SolidJS `:red_circle:`
-5. **#22** &mdash; Add serde serialization `:yellow_circle:`
-6. **#25** &mdash; Add error handling and logging `:yellow_circle:`
-7. **#26** &mdash; Add GitHub Actions CI pipeline `:yellow_circle:`
+4. **#6** &mdash; Create fourier-file-io crate with WAV reading `:yellow_circle:`
+5. **#13** &mdash; Scaffold Tauri v2 desktop application with SolidJS `:red_circle:`
+6. **#22** &mdash; Add serde serialization `:yellow_circle:`
+7. **#25** &mdash; Add error handling and logging `:yellow_circle:`
 
 ### PARALLEL TRACKS
 
@@ -224,7 +226,7 @@ These can proceed independently alongside the critical path:
 
 - **DSP track:** #9 (Parametric EQ), #11 (Freeze), #12 (Pitch shift)
 - **File I/O track:** #6, #7 (WAV read/write)
-- **Polish track:** #25, #26 (error handling, CI)
+- **Polish track:** #25, #26, #30 (error handling, CI, dev infra)
 
 ---
 
@@ -233,10 +235,10 @@ These can proceed independently alongside the critical path:
 ### Batch 1: Foundations (Week 1)
 | Order | Issue | Rationale |
 |-------|-------|-----------|
-| 1 | #2 Oscillator module | Unblocks all sound generation |
-| 2 | #5 Engine source integration | Connects generators to pipeline |
-| 3 | #3 Noise generators | Parallel with #5, simple module |
-| 4 | #26 CI pipeline | Get CI green early |
+| 1 | #30 Dev infrastructure | Establish linting, formatting, CI before new code |
+| 2 | #2 Oscillator module | Unblocks all sound generation |
+| 3 | #5 Engine source integration | Connects generators to pipeline |
+| 4 | #3 Noise generators | Parallel with #5, simple module |
 
 ### Batch 2: File I/O + DSP (Week 2)
 | Order | Issue | Rationale |
@@ -282,8 +284,9 @@ These can proceed independently alongside the critical path:
 | Order | Issue | Rationale |
 |-------|-------|-----------|
 | 25 | #10 Spectral delay | Niche effect |
-| 26 | #27 WASM compilation | Web readiness |
-| 27 | #28 WebAudio integration | Browser demo |
+| 26 | #26 CI pipeline (if not covered by #30) | Additional CI beyond #30 |
+| 27 | #27 WASM compilation | Web readiness |
+| 28 | #28 WebAudio integration | Browser demo |
 
 ---
 
@@ -297,8 +300,8 @@ These can proceed independently alongside the critical path:
 | 4 &mdash; Tauri | 4 | 4 | 0 | 0 | 0 | 0 |
 | 5 &mdash; UI | 5 | 2 | 2 | 1 | 0 | 0 |
 | 6 &mdash; Workflow | 3 | 0 | 1 | 2 | 0 | 0 |
-| 7 &mdash; Polish/Web | 4 | 0 | 2 | 0 | 2 | 0 |
-| **Total** | **27** | **8** | **9** | **7** | **3** | **0** |
+| 7 &mdash; Polish/Web | 5 | 1 | 2 | 0 | 2 | 0 |
+| **Total** | **28** | **9** | **9** | **7** | **3** | **0** |
 
 ---
 
@@ -319,6 +322,9 @@ These can proceed independently alongside the critical path:
 ## Changelog
 
 ### 2026-02-06
+- **Added #30** (dev infrastructure) &mdash; linting, formatting, testing, CI setup; critical priority, Phase 7
+- Updated issue counts: 27 &rarr; 28 total, 8 &rarr; 9 critical
+- Moved #30 to Batch 1 position 1 (establish conventions before new code)
 - **Created initial roadmap** with 27 issues across 7 phases
 - Phase 1: Sound generation (4 issues) &mdash; oscillators, noise, additive, engine integration
 - Phase 2: Audio file I/O (3 issues) &mdash; WAV read/write, file playback
