@@ -13,8 +13,8 @@
 | Priority | Count | Issues |
 |----------|-------|--------|
 | :red_circle: Critical | 8 | #2, #5, #13, #14, #15, #16, #17, #19 |
-| :yellow_circle: High | 10 | #6, #7, #8, #9, #18, #20, #22, #25, #26 |
-| :green_circle: Medium | 6 | #3, #4, #11, #12, #21, #23, #24 |
+| :yellow_circle: High | 9 | #6, #7, #8, #9, #18, #20, #22, #25, #26 |
+| :green_circle: Medium | 7 | #3, #4, #11, #12, #21, #23, #24 |
 | :large_blue_circle: Low | 3 | #10, #27, #28 |
 
 ---
