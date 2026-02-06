@@ -68,7 +68,7 @@ impl Oscillator {
             self.phase += phase_inc;
             // Wrap phase to [0, TAU) to prevent precision loss.
             if self.phase >= TAU {
-                self.phase -= TAU;
+                self.phase %= TAU;
             }
         }
     }
@@ -196,7 +196,7 @@ mod tests {
     fn sine_single_peak() {
         let freq = 440.0;
         let mags = magnitude_spectrum(WaveformType::Sine, freq);
-        let max_mag = mags.iter().skip(1).cloned().reduce(f32::max).unwrap();
+        let max_mag = mags.iter().skip(1).copied().reduce(f32::max).unwrap();
 
         // Count bins with significant energy (> 5% of peak).
         // An unwindowed FFT has spectral leakage, so we use a generous threshold.
