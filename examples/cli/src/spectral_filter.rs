@@ -7,8 +7,8 @@
 //!   spectral-filter highpass 500
 //!   spectral-filter bandpass 200 2000
 
-use fourier_engine::processor::Engine;
 use fourier_engine::params::TransformSpec;
+use fourier_engine::processor::Engine;
 
 use cpal::traits::{DeviceTrait, HostTrait, StreamTrait};
 

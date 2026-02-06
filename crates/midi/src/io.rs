@@ -127,12 +127,7 @@ impl MidiOutput {
     }
 
     /// Send a Control Change message.
-    pub fn control_change(
-        &mut self,
-        channel: u8,
-        controller: u8,
-        value: u8,
-    ) -> Result<(), String> {
+    pub fn control_change(&mut self, channel: u8, controller: u8, value: u8) -> Result<(), String> {
         let msg = [0xB0 | (channel & 0x0F), controller & 0x7F, value & 0x7F];
         self.connection
             .send(&msg)

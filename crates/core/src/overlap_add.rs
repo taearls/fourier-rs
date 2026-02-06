@@ -122,6 +122,14 @@ impl OverlapAddProcessor {
             {
                 self.process_frame(transform);
                 self.samples_since_last_frame = 0;
+
+                // Keep input_write_pos bounded by wrapping at a multiple of fft_size.
+                // This preserves modular indexing correctness while preventing
+                // unbounded growth over long sessions.
+                if self.input_write_pos >= self.config.fft_size * 2 {
+                    self.input_write_pos =
+                        self.config.fft_size + (self.input_write_pos % self.config.fft_size);
+                }
             }
         }
     }
@@ -167,11 +175,7 @@ impl OverlapAddProcessor {
         let buf_len = self.input_buf.len();
 
         // Extract the most recent fft_size samples from the circular input buffer.
-        let start = if self.input_write_pos >= fft_size {
-            self.input_write_pos - fft_size
-        } else {
-            0
-        };
+        let start = self.input_write_pos.saturating_sub(fft_size);
 
         for i in 0..fft_size {
             self.windowed_frame[i] = self.input_buf[(start + i) % buf_len];
@@ -195,8 +199,7 @@ impl OverlapAddProcessor {
         self.latest_spectrum.copy_from_slice(&self.spectrum);
 
         // Inverse FFT.
-        self.fft
-            .inverse(&mut self.spectrum, &mut self.ifft_output);
+        self.fft.inverse(&mut self.spectrum, &mut self.ifft_output);
 
         // Overlap-add into output buffer.
         let out_len = self.output_buf.len();

@@ -1,6 +1,6 @@
 //! MIDI event types and lock-free message passing channels.
 
-use crossbeam_channel::{Receiver, Sender, bounded};
+use crossbeam_channel::{bounded, Receiver, Sender};
 
 /// Represents a MIDI event with timing info.
 #[derive(Debug, Clone, Copy)]

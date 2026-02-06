@@ -8,15 +8,23 @@
 
 use std::ptr;
 
-use fourier_engine::processor::{Engine, EngineIo};
 use fourier_engine::params::TransformSpec;
+use fourier_engine::processor::{Engine, EngineIo};
 
 /// Opaque handle to the engine (pointer to a heap-allocated Engine).
 ///
-/// Holds both the engine and the I/O endpoints. The I/O can be taken
-/// via FFI to connect to native audio streams.
+/// Holds both the engine and the I/O ring buffer endpoints.
+///
+/// **Note**: The `io` field stores the [`EngineIo`] (input producer + output
+/// consumer) so that the ring buffers stay alive for the duration of the
+/// engine. Currently, no FFI functions expose the I/O endpoints directly —
+/// the FFI layer supports parameter control and spectrum visualization only.
+/// To connect audio I/O from native code, additional FFI functions that
+/// borrow or take the ring buffer halves will be needed.
 pub struct FfiEngine {
     engine: Engine,
+    /// Keeps the ring buffer endpoints alive. See struct-level docs for
+    /// current limitations.
     _io: Option<EngineIo>,
 }
 
@@ -80,7 +88,9 @@ pub unsafe extern "C" fn engine_set_bypass(handle: *mut FfiEngine, bypass: bool)
 #[no_mangle]
 pub unsafe extern "C" fn engine_set_lowpass(handle: *mut FfiEngine, cutoff_hz: f32) {
     if let Some(ffi) = unsafe { handle.as_ref() } {
-        let _ = ffi.engine.set_transform(TransformSpec::LowPass { cutoff_hz });
+        let _ = ffi
+            .engine
+            .set_transform(TransformSpec::LowPass { cutoff_hz });
     }
 }
 
@@ -91,7 +101,9 @@ pub unsafe extern "C" fn engine_set_lowpass(handle: *mut FfiEngine, cutoff_hz: f
 #[no_mangle]
 pub unsafe extern "C" fn engine_set_highpass(handle: *mut FfiEngine, cutoff_hz: f32) {
     if let Some(ffi) = unsafe { handle.as_ref() } {
-        let _ = ffi.engine.set_transform(TransformSpec::HighPass { cutoff_hz });
+        let _ = ffi
+            .engine
+            .set_transform(TransformSpec::HighPass { cutoff_hz });
     }
 }
 
@@ -102,7 +114,9 @@ pub unsafe extern "C" fn engine_set_highpass(handle: *mut FfiEngine, cutoff_hz: 
 #[no_mangle]
 pub unsafe extern "C" fn engine_set_bandpass(handle: *mut FfiEngine, low_hz: f32, high_hz: f32) {
     if let Some(ffi) = unsafe { handle.as_ref() } {
-        let _ = ffi.engine.set_transform(TransformSpec::BandPass { low_hz, high_hz });
+        let _ = ffi
+            .engine
+            .set_transform(TransformSpec::BandPass { low_hz, high_hz });
     }
 }
 
@@ -123,8 +137,11 @@ pub unsafe extern "C" fn engine_set_identity(handle: *mut FfiEngine) {
 /// Returns the number of bins actually written, or 0 if no data is available.
 ///
 /// # Safety
-/// `handle` must be a valid engine pointer. `out_magnitudes` must point to
-/// an array of at least `max_bins` f32 values.
+/// - `handle` must be a valid pointer returned by `engine_create`.
+/// - `out_magnitudes` must point to a writable array of at least `max_bins`
+///   `f32` values, properly aligned for `f32` (4-byte alignment).
+/// - The caller must ensure that `out_magnitudes` remains valid for the
+///   duration of this call.
 #[no_mangle]
 pub unsafe extern "C" fn engine_get_spectrum(
     handle: *mut FfiEngine,
@@ -136,6 +153,10 @@ pub unsafe extern "C" fn engine_get_spectrum(
         None => return 0,
     };
 
+    if out_magnitudes.is_null() {
+        return 0;
+    }
+
     match ffi.engine.try_recv_snapshot() {
         Some(snapshot) => {
             let n = snapshot.magnitude_db.len().min(max_bins);
@@ -145,5 +166,92 @@ pub unsafe extern "C" fn engine_get_spectrum(
             n
         }
         None => 0,
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn ffi_create_destroy_lifecycle() {
+        let handle = engine_create(44100.0, 256, 128);
+        assert!(!handle.is_null());
+        unsafe {
+            engine_destroy(handle);
+        }
+    }
+
+    #[test]
+    fn ffi_destroy_null_is_safe() {
+        // Destroying a null pointer should not panic.
+        unsafe {
+            engine_destroy(std::ptr::null_mut());
+        }
+    }
+
+    #[test]
+    fn ffi_set_filters() {
+        let handle = engine_create(44100.0, 256, 128);
+        assert!(!handle.is_null());
+
+        unsafe {
+            engine_set_identity(handle);
+            engine_set_lowpass(handle, 1000.0);
+            engine_set_highpass(handle, 500.0);
+            engine_set_bandpass(handle, 200.0, 2000.0);
+            engine_set_gain(handle, 0.5);
+            engine_set_bypass(handle, true);
+            engine_set_bypass(handle, false);
+            engine_destroy(handle);
+        }
+    }
+
+    #[test]
+    fn ffi_get_spectrum_returns_zero_when_no_data() {
+        let handle = engine_create(44100.0, 256, 128);
+        assert!(!handle.is_null());
+
+        let mut buf = vec![0.0_f32; 256];
+        let n = unsafe { engine_get_spectrum(handle, buf.as_mut_ptr(), buf.len()) };
+        // No audio data pushed, so no snapshot should be available.
+        assert_eq!(n, 0);
+
+        unsafe {
+            engine_destroy(handle);
+        }
+    }
+
+    #[test]
+    fn ffi_get_spectrum_null_handle() {
+        let mut buf = vec![0.0_f32; 256];
+        let n = unsafe { engine_get_spectrum(std::ptr::null_mut(), buf.as_mut_ptr(), buf.len()) };
+        assert_eq!(n, 0);
+    }
+
+    #[test]
+    fn ffi_get_spectrum_null_buffer() {
+        let handle = engine_create(44100.0, 256, 128);
+        assert!(!handle.is_null());
+
+        let n = unsafe { engine_get_spectrum(handle, std::ptr::null_mut(), 256) };
+        assert_eq!(n, 0);
+
+        unsafe {
+            engine_destroy(handle);
+        }
+    }
+
+    #[test]
+    fn ffi_operations_on_null_handle() {
+        // All operations on null handle should be no-ops, not panics.
+        unsafe {
+            engine_set_gain(std::ptr::null_mut(), 1.0);
+            engine_set_bypass(std::ptr::null_mut(), true);
+            engine_set_lowpass(std::ptr::null_mut(), 1000.0);
+            engine_set_highpass(std::ptr::null_mut(), 500.0);
+            engine_set_bandpass(std::ptr::null_mut(), 200.0, 2000.0);
+            engine_set_identity(std::ptr::null_mut());
+        }
     }
 }

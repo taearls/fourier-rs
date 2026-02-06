@@ -76,7 +76,9 @@ impl AudioStream {
             )
             .map_err(|e| format!("Failed to build input stream: {}", e))?;
 
-        stream.play().map_err(|e| format!("Failed to start input: {}", e))?;
+        stream
+            .play()
+            .map_err(|e| format!("Failed to start input: {}", e))?;
 
         Ok(Self {
             _input_stream: Some(stream),
@@ -118,7 +120,9 @@ impl AudioStream {
             )
             .map_err(|e| format!("Failed to build output stream: {}", e))?;
 
-        stream.play().map_err(|e| format!("Failed to start output: {}", e))?;
+        stream
+            .play()
+            .map_err(|e| format!("Failed to start output: {}", e))?;
 
         Ok(Self {
             _input_stream: None,

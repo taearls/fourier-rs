@@ -8,6 +8,9 @@ pub mod device;
 pub mod ring_buffer;
 pub mod stream;
 
-pub use device::{AudioDevice, list_input_devices, list_output_devices, default_input_device, default_output_device};
+pub use device::{
+    default_input_device, default_output_device, list_input_devices, list_output_devices,
+    AudioDevice,
+};
 pub use ring_buffer::AudioRingBuffer;
 pub use stream::{AudioStream, StreamConfig};

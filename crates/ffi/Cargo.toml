@@ -6,7 +6,7 @@ license.workspace = true
 description = "C-ABI exports for Swift/native UI integration"
 
 [lib]
-crate-type = ["cdylib", "staticlib"]
+crate-type = ["cdylib", "staticlib", "lib"]
 
 [dependencies]
 fourier-engine.workspace = true

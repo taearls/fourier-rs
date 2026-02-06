@@ -25,9 +25,6 @@ cpal = "0.15"
 # MIDI
 midir = "0.10"
 
-# Sample processing
-dasp = { version = "0.11", features = ["signal", "interpolate", "interpolate-sinc"] }
-
 # Lock-free communication
 ringbuf = "0.4"
 crossbeam-channel = "0.5"

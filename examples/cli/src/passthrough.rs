@@ -4,8 +4,8 @@
 //! This is Phase 2 validation: verify that the overlap-add pipeline
 //! produces output matching the input (identity transform).
 
-use fourier_engine::processor::Engine;
 use fourier_engine::params::TransformSpec;
+use fourier_engine::processor::Engine;
 
 use cpal::traits::{DeviceTrait, HostTrait, StreamTrait};
 

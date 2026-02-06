@@ -5,7 +5,7 @@
 //! full complex FFT.
 
 use num_complex::Complex;
-use realfft::{RealFftPlanner, RealToComplex, ComplexToReal};
+use realfft::{ComplexToReal, RealFftPlanner, RealToComplex};
 use std::sync::Arc;
 
 /// Wraps a forward (real→complex) and inverse (complex→real) FFT pair
@@ -27,7 +27,7 @@ impl FftProcessor {
     /// `fft_size` must be even (power of 2 recommended for performance).
     pub fn new(fft_size: usize) -> Self {
         assert!(fft_size >= 4, "fft_size must be >= 4");
-        assert!(fft_size % 2 == 0, "fft_size must be even");
+        assert!(fft_size.is_multiple_of(2), "fft_size must be even");
 
         let mut planner = RealFftPlanner::<f32>::new();
         let forward = planner.plan_fft_forward(fft_size);

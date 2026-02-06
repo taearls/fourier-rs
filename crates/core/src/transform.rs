@@ -198,9 +198,7 @@ mod tests {
 
     #[test]
     fn low_pass_zeros_high_bins() {
-        let mut spectrum: Vec<Complex<f32>> = (0..513)
-            .map(|_| Complex::new(1.0, 0.0))
-            .collect();
+        let mut spectrum: Vec<Complex<f32>> = (0..513).map(|_| Complex::new(1.0, 0.0)).collect();
 
         let sample_rate = 44100.0;
         let fft_size = 1024;
@@ -212,9 +210,18 @@ mod tests {
         for (i, bin) in spectrum.iter().enumerate() {
             let freq = i as f32 * bin_width;
             if freq > 1000.0 {
-                assert!(bin.norm() < 1e-6, "bin {} at {:.1} Hz should be zero", i, freq);
+                assert!(
+                    bin.norm() < 1e-6,
+                    "bin {} at {:.1} Hz should be zero",
+                    i,
+                    freq
+                );
             } else {
-                assert!((bin.norm() - 1.0).abs() < 1e-6, "bin {} should be untouched", i);
+                assert!(
+                    (bin.norm() - 1.0).abs() < 1e-6,
+                    "bin {} should be untouched",
+                    i
+                );
             }
         }
     }

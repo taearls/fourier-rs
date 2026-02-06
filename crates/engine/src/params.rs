@@ -1,7 +1,5 @@
 //! Engine parameter types and lock-free parameter messaging.
 
-use crossbeam_channel::{Receiver, Sender, bounded};
-
 /// Run-time adjustable engine parameters.
 #[derive(Debug, Clone)]
 pub struct EngineParams {
@@ -49,9 +47,4 @@ pub enum TransformSpec {
     BandPass { low_hz: f32, high_hz: f32 },
     Gain { factor: f32 },
     Chain(Vec<TransformSpec>),
-}
-
-/// Create a parameter message channel (UI → engine).
-pub fn param_channel() -> (Sender<ParamMessage>, Receiver<ParamMessage>) {
-    bounded(64)
 }

@@ -30,7 +30,7 @@ fn main() {
 
     let fft_size: usize = 2048;
     let ring_capacity = fft_size * 4;
-    let (mut producer, mut consumer) = AudioRingBuffer::new(ring_capacity);
+    let (mut producer, mut consumer) = AudioRingBuffer::create(ring_capacity);
 
     // Build the input stream — writes captured audio into the ring buffer.
     let stream = device
@@ -64,19 +64,29 @@ fn main() {
     let mut frame = vec![0.0_f32; fft_size];
     let mut spectrum = fft.alloc_spectrum();
 
+    // Accumulation buffer to avoid dropping partial reads from the ring buffer.
+    let mut accum = vec![0.0_f32; fft_size];
+    let mut accum_len: usize = 0;
+    let mut read_buf = vec![0.0_f32; fft_size];
+
     loop {
-        // Wait for enough samples.
-        let n = consumer.pop_slice(&mut frame);
-        if n < fft_size {
+        // Read whatever samples are available into the accumulation buffer.
+        let remaining = fft_size - accum_len;
+        let n = consumer.pop_slice(&mut read_buf[..remaining]);
+        if n > 0 {
+            accum[accum_len..accum_len + n].copy_from_slice(&read_buf[..n]);
+            accum_len += n;
+        }
+
+        if accum_len < fft_size {
             // Not enough data yet; sleep briefly and try again.
             std::thread::sleep(std::time::Duration::from_millis(10));
-            // Shift partial data to the beginning and read more.
-            if n > 0 {
-                // Simple approach: just wait for a full frame next time.
-                continue;
-            }
             continue;
         }
+
+        // We have a full frame — copy into processing buffer and reset accumulator.
+        frame.copy_from_slice(&accum);
+        accum_len = 0;
 
         // Apply window.
         window.apply(&mut frame);

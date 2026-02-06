@@ -25,13 +25,12 @@ impl AudioRingBuffer {
     /// Create a new ring buffer with the given capacity in samples.
     ///
     /// Returns (producer, consumer) halves that can be sent to different threads.
-    pub fn new(capacity: usize) -> (RingProducer, RingConsumer) {
+    /// Named `create` instead of `new` because it returns a tuple of halves
+    /// rather than `Self`.
+    pub fn create(capacity: usize) -> (RingProducer, RingConsumer) {
         let rb = HeapRb::<f32>::new(capacity);
         let (prod, cons) = rb.split();
-        (
-            RingProducer { inner: prod },
-            RingConsumer { inner: cons },
-        )
+        (RingProducer { inner: prod }, RingConsumer { inner: cons })
     }
 }
 
@@ -71,9 +70,19 @@ impl RingConsumer {
     }
 }
 
-// Safety: The ringbuf crate's producer and consumer halves are designed
-// to be sent across threads.
+// SAFETY: `RingProducer` wraps `ringbuf::HeapProd<f32>`, which is
+// `CachingProd<Arc<HeapRb<f32>>>`. The inner `Arc<HeapRb<f32>>` is `Send + Sync`
+// (ringbuf's `Heap<T>` implements `Send` when `T: Send`, and `f32: Send`).
+// The `Caching` wrapper uses only atomic operations for index synchronization
+// and holds no thread-local or non-Send state. The ringbuf crate omits the
+// blanket `Send` impl on `Caching` because it is generic over `R: RbRef`
+// without a `Send` bound, but for our concrete type (`Arc<HeapRb<f32>>`),
+// sending across threads is sound.
 unsafe impl Send for RingProducer {}
+
+// SAFETY: Same reasoning as `RingProducer` above — `RingConsumer` wraps
+// `ringbuf::HeapCons<f32>` (`CachingCons<Arc<HeapRb<f32>>>`), which is
+// safe to send across threads for the same reasons.
 unsafe impl Send for RingConsumer {}
 
 #[cfg(test)]
@@ -82,7 +91,7 @@ mod tests {
 
     #[test]
     fn basic_push_pop() {
-        let (mut prod, mut cons) = AudioRingBuffer::new(1024);
+        let (mut prod, mut cons) = AudioRingBuffer::create(1024);
         let input = vec![1.0, 2.0, 3.0, 4.0];
         assert_eq!(prod.push_slice(&input), 4);
 
@@ -93,7 +102,7 @@ mod tests {
 
     #[test]
     fn overflow_returns_partial_count() {
-        let (mut prod, _cons) = AudioRingBuffer::new(4);
+        let (mut prod, _cons) = AudioRingBuffer::create(4);
         let input = vec![1.0; 8];
         let written = prod.push_slice(&input);
         assert!(written <= 4);
