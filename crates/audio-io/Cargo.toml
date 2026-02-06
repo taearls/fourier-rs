@@ -1,0 +1,10 @@
+[package]
+name = "fourier-audio-io"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+description = "Audio I/O via cpal, ring buffers, device management"
+
+[dependencies]
+cpal.workspace = true
+ringbuf.workspace = true
