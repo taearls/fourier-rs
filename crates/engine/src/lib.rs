@@ -8,6 +8,8 @@
 
 pub mod params;
 pub mod processor;
+pub mod source;
 
-pub use params::{EngineParams, ParamMessage};
+pub use params::{EngineParams, NoiseType, ParamMessage, Partial, SourceSpec};
 pub use processor::Engine;
+pub use source::AudioSource;

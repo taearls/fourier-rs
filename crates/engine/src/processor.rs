@@ -13,7 +13,8 @@ use fourier_core::transform::{
     SpectralTransform, TransformChain,
 };
 
-use crate::params::{EngineParams, ParamMessage, TransformSpec};
+use crate::params::{EngineParams, ParamMessage, SourceSpec, TransformSpec};
+use crate::source::{build_source, AudioSource};
 
 /// Snapshot of spectral data sent from the processing thread to the UI.
 #[derive(Debug, Clone)]
@@ -127,6 +128,11 @@ impl Engine {
         self.send_param(ParamMessage::SetBypass(bypass))
     }
 
+    /// Set the audio source.
+    pub fn set_source(&self, spec: SourceSpec) -> Result<(), String> {
+        self.send_param(ParamMessage::SetSource(spec))
+    }
+
     /// Try to receive the latest spectral snapshot (non-blocking).
     pub fn try_recv_snapshot(&self) -> Option<SpectralSnapshot> {
         self.snapshot_rx.try_recv().ok()
@@ -188,6 +194,9 @@ fn processing_loop(
     let mut transform: Box<dyn SpectralTransform> = Box::new(IdentityTransform);
     let mut params = EngineParams::default();
 
+    // Current audio source. `None` means live input (read from ring buffer).
+    let mut source: Option<Box<dyn AudioSource>> = None;
+
     // Scratch buffers — pre-allocated, no allocation in the loop.
     let chunk_size = config.hop_size;
     let mut input_chunk = vec![0.0_f32; chunk_size];
@@ -205,17 +214,28 @@ fn processing_loop(
                 ParamMessage::SetTransform(spec) => {
                     transform = build_transform(&spec);
                 }
+                ParamMessage::SetSource(spec) => {
+                    source = build_source(&spec, config.sample_rate);
+                }
                 ParamMessage::Shutdown => return,
             }
         }
 
-        // 2. Read available input samples.
-        let n_read = input.pop_slice(&mut input_chunk);
-        if n_read == 0 {
-            // No input available; sleep briefly to avoid busy-spinning.
-            thread::sleep(std::time::Duration::from_micros(500));
-            continue;
-        }
+        // 2. Get input samples — either from a generated source or the live input ring buffer.
+        let n_read = if let Some(ref mut src) = source {
+            // Generated source: fill the entire chunk.
+            src.generate(&mut input_chunk);
+            chunk_size
+        } else {
+            // Live input: read whatever is available from the ring buffer.
+            let n = input.pop_slice(&mut input_chunk);
+            if n == 0 {
+                // No input available; sleep briefly to avoid busy-spinning.
+                thread::sleep(std::time::Duration::from_micros(500));
+                continue;
+            }
+            n
+        };
 
         let input_slice = &input_chunk[..n_read];
 
@@ -493,5 +513,241 @@ mod tests {
         // Create and drop without explicit shutdown -- Drop impl should handle it.
         let (engine, _io) = Engine::new(sample_rate, fft_size, hop_size);
         drop(engine);
+    }
+
+    // --- Source integration tests ---
+
+    #[test]
+    fn engine_oscillator_source_produces_output() {
+        let fft_size = 256;
+        let hop_size = 128;
+        let sample_rate = 44100.0;
+
+        let (engine, io) = Engine::new(sample_rate, fft_size, hop_size);
+        engine.set_transform(TransformSpec::Identity).unwrap();
+        engine
+            .set_source(SourceSpec::Oscillator {
+                waveform: fourier_core::WaveformType::Sine,
+                frequency: 440.0,
+                amplitude: 1.0,
+            })
+            .unwrap();
+
+        let mut consumer = io.output_consumer;
+
+        // Give the processing thread time to generate and process.
+        thread::sleep(std::time::Duration::from_millis(200));
+
+        let mut output = vec![0.0_f32; 4096];
+        let n = consumer.pop_slice(&mut output);
+
+        assert!(n > 0, "oscillator source should produce output");
+        let energy: f32 = output[..n].iter().map(|s| s * s).sum();
+        assert!(energy > 0.0, "oscillator output should have nonzero energy");
+
+        engine.shutdown();
+    }
+
+    #[test]
+    fn engine_noise_source_produces_output() {
+        use crate::params::NoiseType;
+
+        let fft_size = 256;
+        let hop_size = 128;
+        let sample_rate = 44100.0;
+
+        let (engine, io) = Engine::new(sample_rate, fft_size, hop_size);
+        engine.set_transform(TransformSpec::Identity).unwrap();
+        engine
+            .set_source(SourceSpec::Noise {
+                noise_type: NoiseType::White,
+                amplitude: 0.5,
+            })
+            .unwrap();
+
+        let mut consumer = io.output_consumer;
+        thread::sleep(std::time::Duration::from_millis(200));
+
+        let mut output = vec![0.0_f32; 4096];
+        let n = consumer.pop_slice(&mut output);
+
+        assert!(n > 0, "noise source should produce output");
+        let energy: f32 = output[..n].iter().map(|s| s * s).sum();
+        assert!(energy > 0.0, "noise output should have nonzero energy");
+
+        engine.shutdown();
+    }
+
+    #[test]
+    fn engine_additive_source_produces_output() {
+        use crate::params::Partial;
+
+        let fft_size = 256;
+        let hop_size = 128;
+        let sample_rate = 44100.0;
+
+        let (engine, io) = Engine::new(sample_rate, fft_size, hop_size);
+        engine.set_transform(TransformSpec::Identity).unwrap();
+        engine
+            .set_source(SourceSpec::Additive {
+                partials: vec![
+                    Partial {
+                        frequency: 440.0,
+                        amplitude: 1.0,
+                        phase: 0.0,
+                    },
+                    Partial {
+                        frequency: 880.0,
+                        amplitude: 0.5,
+                        phase: 0.0,
+                    },
+                ],
+            })
+            .unwrap();
+
+        let mut consumer = io.output_consumer;
+        thread::sleep(std::time::Duration::from_millis(200));
+
+        let mut output = vec![0.0_f32; 4096];
+        let n = consumer.pop_slice(&mut output);
+
+        assert!(n > 0, "additive source should produce output");
+        let energy: f32 = output[..n].iter().map(|s| s * s).sum();
+        assert!(energy > 0.0, "additive output should have nonzero energy");
+
+        engine.shutdown();
+    }
+
+    #[test]
+    fn engine_source_switch_to_live_input() {
+        let fft_size = 256;
+        let hop_size = 128;
+        let sample_rate = 44100.0;
+
+        let (engine, io) = Engine::new(sample_rate, fft_size, hop_size);
+
+        // Start with oscillator source.
+        engine
+            .set_source(SourceSpec::Oscillator {
+                waveform: fourier_core::WaveformType::Sine,
+                frequency: 440.0,
+                amplitude: 1.0,
+            })
+            .unwrap();
+
+        thread::sleep(std::time::Duration::from_millis(50));
+
+        // Switch back to live input — should not panic.
+        engine.set_source(SourceSpec::LiveInput).unwrap();
+
+        // Push live input data.
+        let mut producer = io.input_producer;
+        let input: Vec<f32> = (0..2048)
+            .map(|i| (2.0 * std::f32::consts::PI * 440.0 * i as f32 / sample_rate).sin())
+            .collect();
+        producer.push_slice(&input);
+
+        thread::sleep(std::time::Duration::from_millis(100));
+
+        let mut consumer = io.output_consumer;
+        let mut output = vec![0.0_f32; 4096];
+        let n = consumer.pop_slice(&mut output);
+
+        assert!(
+            n > 0,
+            "engine should produce output after switching back to live input"
+        );
+
+        engine.shutdown();
+    }
+
+    #[test]
+    fn engine_oscillator_through_lowpass_spectral_result() {
+        let fft_size = 1024;
+        let hop_size = 512;
+        let sample_rate = 44100.0;
+
+        let (engine, io) = Engine::new(sample_rate, fft_size, hop_size);
+
+        // Set a low-pass filter that should pass a 200 Hz sine.
+        engine
+            .set_transform(TransformSpec::LowPass { cutoff_hz: 500.0 })
+            .unwrap();
+        engine
+            .set_source(SourceSpec::Oscillator {
+                waveform: fourier_core::WaveformType::Sine,
+                frequency: 200.0,
+                amplitude: 1.0,
+            })
+            .unwrap();
+
+        thread::sleep(std::time::Duration::from_millis(300));
+
+        // The spectral snapshot should show the 200 Hz peak.
+        let mut got_peak = false;
+        for _ in 0..20 {
+            if let Some(snapshot) = engine.try_recv_snapshot() {
+                // Find the bin with maximum energy.
+                if let Some((peak_bin, _)) = snapshot
+                    .magnitude_db
+                    .iter()
+                    .enumerate()
+                    .skip(1) // skip DC
+                    .max_by(|(_, a), (_, b)| a.partial_cmp(b).unwrap())
+                {
+                    let bin_freq =
+                        peak_bin as f32 * snapshot.sample_rate / snapshot.fft_size as f32;
+                    let bin_width = snapshot.sample_rate / snapshot.fft_size as f32;
+                    // Peak should be near 200 Hz.
+                    if (bin_freq - 200.0).abs() <= bin_width * 2.0 {
+                        got_peak = true;
+                        break;
+                    }
+                }
+            }
+            thread::sleep(std::time::Duration::from_millis(50));
+        }
+        assert!(
+            got_peak,
+            "spectral snapshot should show peak near 200 Hz for oscillator through low-pass"
+        );
+
+        // Also verify output has energy.
+        let mut consumer = io.output_consumer;
+        let mut output = vec![0.0_f32; 8192];
+        let n = consumer.pop_slice(&mut output);
+        assert!(n > 0, "should produce output");
+
+        engine.shutdown();
+    }
+
+    #[test]
+    fn engine_source_switch_does_not_deadlock() {
+        let fft_size = 256;
+        let hop_size = 128;
+        let sample_rate = 44100.0;
+
+        let (engine, _io) = Engine::new(sample_rate, fft_size, hop_size);
+
+        // Rapid source switching should not cause deadlock or panic.
+        for _ in 0..10 {
+            engine
+                .set_source(SourceSpec::Oscillator {
+                    waveform: fourier_core::WaveformType::Square,
+                    frequency: 440.0,
+                    amplitude: 0.5,
+                })
+                .unwrap();
+            engine.set_source(SourceSpec::LiveInput).unwrap();
+            engine
+                .set_source(SourceSpec::Noise {
+                    noise_type: crate::params::NoiseType::Pink,
+                    amplitude: 0.3,
+                })
+                .unwrap();
+        }
+
+        thread::sleep(std::time::Duration::from_millis(50));
+        engine.shutdown();
     }
 }

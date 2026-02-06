@@ -8,11 +8,11 @@
 
 ## Open Issues Summary
 
-**26 open issues** across 7 phases (2 completed)
+**25 open issues** across 7 phases (3 completed)
 
 | Priority | Count | Issues |
 |----------|-------|--------|
-| :red_circle: Critical | 7 | #5, #13, #14, #15, #16, #17, #19 |
+| :red_circle: Critical | 6 | #13, #14, #15, #16, #17, #19 |
 | :yellow_circle: High | 9 | #6, #7, #8, #9, #18, #20, #22, #25, #26 |
 | :green_circle: Medium | 7 | #3, #4, #11, #12, #21, #23, #24 |
 | :large_blue_circle: Low | 3 | #10, #27, #28 |
@@ -32,6 +32,7 @@ The following capabilities already exist in the codebase:
 - **Engine orchestrator** &mdash; `crates/engine/` with parameter messaging and spectral snapshots
 - **FFI bindings** &mdash; `crates/ffi/`
 - **Oscillator** &mdash; Sine, Square, Sawtooth, Triangle waveforms in `crates/core/`
+- **Engine source integration** &mdash; `SourceSpec` enum, `AudioSource` trait, oscillator/noise/additive sources in `crates/engine/`
 
 ---
 
@@ -46,7 +47,7 @@ The following capabilities already exist in the codebase:
 | #2 | ~~Add oscillator module with standard waveforms~~ | :white_check_mark: Done | ~1 day | &mdash; |
 | #3 | Add noise generators (white, pink) | :green_circle: Medium | ~1 day | &mdash; |
 | #4 | Add additive synthesis module | :green_circle: Medium | ~1 day | #2 |
-| #5 | Integrate sound generation into engine as audio source | :red_circle: Critical | ~2 days | #2 |
+| #5 | ~~Integrate sound generation into engine as audio source~~ | :white_check_mark: Done | ~2 days | #2 |
 
 **Key deliverables:**
 - `Oscillator` with Sine, Square, Sawtooth, Triangle waveforms
@@ -188,7 +189,7 @@ The minimum viable product requires completing these issues in order:
 
 ```
 #2 Oscillators ✅
- └─► #5 Engine source integration
+ └─► #5 Engine source integration ✅
       └─► #13 Tauri scaffold
            └─► #22 Serde serialization
                 └─► #14 Engine lifecycle commands
@@ -210,11 +211,11 @@ Start with dev infrastructure and the two critical Phase 1 issues that unblock e
 
 1. ~~**#30** &mdash; Set up development infrastructure (linting, formatting, testing, CI)~~ `:white_check_mark:`
 2. ~~**#2** &mdash; Add oscillator module with standard waveforms~~ `:white_check_mark:`
-3. **#5** &mdash; Integrate sound generation into engine as audio source `:red_circle:`
+3. ~~**#5** &mdash; Integrate sound generation into engine as audio source~~ `:white_check_mark:`
 
 ### NEXT UP
 
-Once Phase 1 criticals are done:
+Phase 1 criticals are done. Moving to Phase 2 and app shell:
 
 4. **#6** &mdash; Create fourier-file-io crate with WAV reading `:yellow_circle:`
 5. **#13** &mdash; Scaffold Tauri v2 desktop application with SolidJS `:red_circle:`
@@ -238,7 +239,7 @@ These can proceed independently alongside the critical path:
 |-------|-------|-----------|
 | ~~1~~ | ~~#30 Dev infrastructure~~ | ~~Establish linting, formatting, CI before new code~~ :white_check_mark: |
 | ~~2~~ | ~~#2 Oscillator module~~ | ~~Unblocks all sound generation~~ :white_check_mark: |
-| 3 | #5 Engine source integration | Connects generators to pipeline |
+| ~~3~~ | ~~#5 Engine source integration~~ | ~~Connects generators to pipeline~~ :white_check_mark: |
 | 4 | #3 Noise generators | Parallel with #5, simple module |
 
 ### Batch 2: File I/O + DSP (Week 2)
@@ -295,14 +296,14 @@ These can proceed independently alongside the critical path:
 
 | Phase | Total | Critical | High | Medium | Low | Done |
 |-------|-------|----------|------|--------|-----|------|
-| 1 &mdash; Sound Gen | 4 | 1 | 0 | 2 | 0 | 1 |
+| 1 &mdash; Sound Gen | 4 | 0 | 0 | 2 | 0 | 2 |
 | 2 &mdash; File I/O | 3 | 0 | 3 | 0 | 0 | 0 |
 | 3 &mdash; DSP | 4 | 0 | 1 | 2 | 1 | 0 |
 | 4 &mdash; Tauri | 4 | 4 | 0 | 0 | 0 | 0 |
 | 5 &mdash; UI | 5 | 2 | 2 | 1 | 0 | 0 |
 | 6 &mdash; Workflow | 3 | 0 | 1 | 2 | 0 | 0 |
 | 7 &mdash; Polish/Web | 5 | 0 | 2 | 0 | 2 | 1 |
-| **Total** | **28** | **7** | **9** | **7** | **3** | **2** |
+| **Total** | **28** | **6** | **9** | **7** | **3** | **3** |
 
 ---
 
@@ -323,6 +324,7 @@ These can proceed independently alongside the critical path:
 ## Changelog
 
 ### 2026-02-06
+- **Completed #5** (engine source integration) &mdash; added `SourceSpec` enum (`LiveInput`, `Oscillator`, `Noise`, `Additive`) and `ParamMessage::SetSource` in `crates/engine/src/params.rs`; added `NoiseType` and `Partial` types; created `AudioSource` trait and implementations (`OscillatorSource`, `WhiteNoiseSource`, `PinkNoiseSource`, `AdditiveSource`) in new `crates/engine/src/source.rs`; modified processing loop in `processor.rs` to generate samples from active source instead of only reading mic input; white noise via xorshift64 PRNG, pink noise via Voss-McCartney algorithm; 20 new tests including integration tests for oscillator/noise/additive through OLA pipeline and spectral verification
 - **Completed #2** (oscillator module) &mdash; added `Oscillator` struct and `WaveformType` enum (Sine, Square, Sawtooth, Triangle) in `crates/core/src/oscillator.rs`; phase-continuous sample generation with `generate(&mut self, output: &mut [f32])`; re-exported from crate root; 13 unit tests including FFT spectral verification, phase continuity, amplitude bounds, and harmonic content validation
 - **Completed #30** (dev infrastructure) &mdash; added `rust-toolchain.toml` (1.93.0), `rustfmt.toml`, `[workspace.lints]` (clippy pedantic + nursery), `.editorconfig`, `deny.toml`, `Justfile`, GitHub Actions CI (`ci.yml`), CI badge in README; fixed all clippy warnings and formatted workspace
 - **Added #30** (dev infrastructure) &mdash; linting, formatting, testing, CI setup; critical priority, Phase 7
