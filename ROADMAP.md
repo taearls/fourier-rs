@@ -8,12 +8,12 @@
 
 ## Open Issues Summary
 
-**25 open issues** across 7 phases (3 completed)
+**24 open issues** across 7 phases (4 completed)
 
 | Priority | Count | Issues |
 |----------|-------|--------|
 | :red_circle: Critical | 6 | #13, #14, #15, #16, #17, #19 |
-| :yellow_circle: High | 9 | #6, #7, #8, #9, #18, #20, #22, #25, #26 |
+| :yellow_circle: High | 8 | #7, #8, #9, #18, #20, #22, #25, #26 |
 | :green_circle: Medium | 7 | #3, #4, #11, #12, #21, #23, #24 |
 | :large_blue_circle: Low | 3 | #10, #27, #28 |
 
@@ -61,11 +61,11 @@ The following capabilities already exist in the codebase:
 
 > **Goal:** Load and save WAV files, play files through the engine
 >
-> **Effort:** ~1 week &bull; **Status:** Not started
+> **Effort:** ~1 week &bull; **Status:** In progress
 
 | # | Title | Priority | Effort | Dependencies |
 |---|-------|----------|--------|--------------|
-| #6 | Create fourier-file-io crate with WAV reading | :yellow_circle: High | ~2 days | &mdash; |
+| #6 | ~~Create fourier-file-io crate with WAV reading~~ | :white_check_mark: Done | ~2 days | &mdash; |
 | #7 | Add WAV file writing/export | :yellow_circle: High | ~1 day | #6 |
 | #8 | Add loaded audio file as engine source | :yellow_circle: High | ~2 days | #5, #6 |
 
@@ -217,10 +217,11 @@ Start with dev infrastructure and the two critical Phase 1 issues that unblock e
 
 Phase 1 criticals are done. Moving to Phase 2 and app shell:
 
-4. **#6** &mdash; Create fourier-file-io crate with WAV reading `:yellow_circle:`
-5. **#13** &mdash; Scaffold Tauri v2 desktop application with SolidJS `:red_circle:`
-6. **#22** &mdash; Add serde serialization `:yellow_circle:`
-7. **#25** &mdash; Add error handling and logging `:yellow_circle:`
+4. ~~**#6** &mdash; Create fourier-file-io crate with WAV reading~~ `:white_check_mark:`
+5. **#7** &mdash; Add WAV file writing/export `:yellow_circle:`
+6. **#13** &mdash; Scaffold Tauri v2 desktop application with SolidJS `:red_circle:`
+7. **#22** &mdash; Add serde serialization `:yellow_circle:`
+8. **#25** &mdash; Add error handling and logging `:yellow_circle:`
 
 ### PARALLEL TRACKS
 
@@ -245,7 +246,7 @@ These can proceed independently alongside the critical path:
 ### Batch 2: File I/O + DSP (Week 2)
 | Order | Issue | Rationale |
 |-------|-------|-----------|
-| 5 | #6 WAV reading | Unblocks file playback |
+| ~~5~~ | ~~#6 WAV reading~~ | ~~Unblocks file playback~~ :white_check_mark: |
 | 6 | #7 WAV writing | Small addition to #6 |
 | 7 | #9 Parametric EQ | Key DSP feature |
 | 8 | #4 Additive synthesis | Depends on #2, enriches sources |
@@ -297,13 +298,13 @@ These can proceed independently alongside the critical path:
 | Phase | Total | Critical | High | Medium | Low | Done |
 |-------|-------|----------|------|--------|-----|------|
 | 1 &mdash; Sound Gen | 4 | 0 | 0 | 2 | 0 | 2 |
-| 2 &mdash; File I/O | 3 | 0 | 3 | 0 | 0 | 0 |
+| 2 &mdash; File I/O | 3 | 0 | 2 | 0 | 0 | 1 |
 | 3 &mdash; DSP | 4 | 0 | 1 | 2 | 1 | 0 |
 | 4 &mdash; Tauri | 4 | 4 | 0 | 0 | 0 | 0 |
 | 5 &mdash; UI | 5 | 2 | 2 | 1 | 0 | 0 |
 | 6 &mdash; Workflow | 3 | 0 | 1 | 2 | 0 | 0 |
 | 7 &mdash; Polish/Web | 5 | 0 | 2 | 0 | 2 | 1 |
-| **Total** | **28** | **6** | **9** | **7** | **3** | **3** |
+| **Total** | **28** | **6** | **8** | **7** | **3** | **4** |
 
 ---
 
@@ -324,6 +325,7 @@ These can proceed independently alongside the critical path:
 ## Changelog
 
 ### 2026-02-06
+- **Completed #6** (fourier-file-io crate with WAV reading) &mdash; created new `crates/file-io/` crate with `hound` dependency; `AudioBuffer` struct with `samples: Vec<f32>`, `sample_rate: u32`, `channels: u16` and `num_frames()`/`duration_secs()` methods; `load_wav(path)` supporting 16-bit int, 24-bit int, and 32-bit float WAV formats with normalization to [-1.0, 1.0]; mono and stereo interleaved support; `FileIoError` enum with `FileNotFound`, `InvalidFormat`, `UnsupportedFormat`, `Io` variants; 21 unit tests covering all formats, stereo interleaving, clamping, error cases, and normalization accuracy
 - **Completed #5** (engine source integration) &mdash; added `SourceSpec` enum (`LiveInput`, `Oscillator`, `Noise`, `Additive`) and `ParamMessage::SetSource` in `crates/engine/src/params.rs`; added `NoiseType` and `Partial` types; created `AudioSource` trait and implementations (`OscillatorSource`, `WhiteNoiseSource`, `PinkNoiseSource`, `AdditiveSource`) in new `crates/engine/src/source.rs`; modified processing loop in `processor.rs` to generate samples from active source instead of only reading mic input; white noise via xorshift64 PRNG, pink noise via Voss-McCartney algorithm; 20 new tests including integration tests for oscillator/noise/additive through OLA pipeline and spectral verification
 - **Completed #2** (oscillator module) &mdash; added `Oscillator` struct and `WaveformType` enum (Sine, Square, Sawtooth, Triangle) in `crates/core/src/oscillator.rs`; phase-continuous sample generation with `generate(&mut self, output: &mut [f32])`; re-exported from crate root; 13 unit tests including FFT spectral verification, phase continuity, amplitude bounds, and harmonic content validation
 - **Completed #30** (dev infrastructure) &mdash; added `rust-toolchain.toml` (1.93.0), `rustfmt.toml`, `[workspace.lints]` (clippy pedantic + nursery), `.editorconfig`, `deny.toml`, `Justfile`, GitHub Actions CI (`ci.yml`), CI badge in README; fixed all clippy warnings and formatted workspace

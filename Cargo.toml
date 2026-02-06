@@ -6,6 +6,7 @@ members = [
     "crates/midi",
     "crates/engine",
     "crates/ffi",
+    "crates/file-io",
     "examples/cli",
 ]
 
@@ -25,6 +26,9 @@ cpal = "0.15"
 # MIDI
 midir = "0.10"
 
+# File I/O
+hound = "3.5"
+
 # Lock-free communication
 ringbuf = "0.4"
 crossbeam-channel = "0.5"
@@ -39,6 +43,7 @@ fourier-audio-io = { path = "crates/audio-io" }
 fourier-midi = { path = "crates/midi" }
 fourier-engine = { path = "crates/engine" }
 fourier-ffi = { path = "crates/ffi" }
+fourier-file-io = { path = "crates/file-io" }
 
 [workspace.lints.rust]
 unsafe_code = "warn"

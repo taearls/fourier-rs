@@ -1,0 +1,14 @@
+[package]
+name = "fourier-file-io"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+description = "Audio file I/O: WAV reading and writing"
+
+[dependencies]
+hound.workspace = true
+
+[lints]
+workspace = true
+
+[dev-dependencies]
