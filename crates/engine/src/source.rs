@@ -145,21 +145,17 @@ impl AudioSource for PinkNoiseSource {
 
 /// Additive synthesis source: sums phase-continuous sinusoidal partials.
 struct AdditiveSource {
-    /// Per-partial state: `(frequency, amplitude, current_phase)`.
+    /// Per-partial state: `(phase_increment, amplitude, current_phase)`.
     partials: Vec<(f32, f32, f32)>,
-    sample_rate: f32,
 }
 
 impl AdditiveSource {
     fn new(partials: &[Partial], sample_rate: f32) -> Self {
         let partials = partials
             .iter()
-            .map(|p| (p.frequency, p.amplitude, p.phase))
+            .map(|p| (TAU * p.frequency / sample_rate, p.amplitude, p.phase))
             .collect();
-        Self {
-            partials,
-            sample_rate,
-        }
+        Self { partials }
     }
 }
 
@@ -170,14 +166,15 @@ impl AudioSource for AdditiveSource {
             *s = 0.0;
         }
 
-        for (freq, amp, phase) in &mut self.partials {
-            let phase_inc = TAU * *freq / self.sample_rate;
+        for (phase_inc, amp, phase) in &mut self.partials {
             for s in output.iter_mut() {
                 *s += *amp * phase.sin();
-                *phase += phase_inc;
+                *phase += *phase_inc;
+                // Wrap per-sample to prevent precision loss at high frequencies.
+                if *phase >= TAU {
+                    *phase -= TAU;
+                }
             }
-            // Wrap phase to prevent precision loss.
-            *phase %= TAU;
         }
     }
 }
