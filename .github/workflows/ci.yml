@@ -40,7 +40,7 @@ jobs:
 
   deny:
     name: Dependency audit
-    runs-on: macos-latest
+    runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
       - uses: EmbarkStudios/cargo-deny-action@v2
