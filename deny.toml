@@ -20,7 +20,7 @@ ignore = true
 
 [bans]
 multiple-versions = "warn"
-wildcards = "allow"
+wildcards = "allow" # workspace path deps trigger false positives with "deny"
 
 [sources]
 unknown-registry = "deny"

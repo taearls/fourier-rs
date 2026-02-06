@@ -9,7 +9,7 @@ test:
 
 # Run clippy lints
 lint:
-    cargo clippy --workspace -- -D warnings
+    cargo clippy --workspace --tests -- -D warnings
 
 # Format code
 fmt:
