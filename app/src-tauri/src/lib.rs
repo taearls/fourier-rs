@@ -8,7 +8,9 @@ use serde::Serialize;
 use tauri::State;
 
 use fourier_audio_io::stream::StreamConfig;
-use fourier_audio_io::{default_input_device, default_output_device, list_output_devices};
+use fourier_audio_io::{
+    default_input_device, default_output_device, list_input_devices, list_output_devices,
+};
 use fourier_engine::{Engine, TransformSpec};
 
 // ---------------------------------------------------------------------------
@@ -78,6 +80,12 @@ fn start_engine(
 
     if guard.is_some() {
         return Err("Engine is already running".to_string());
+    }
+
+    if !fft_size.is_power_of_two() || fft_size < 4 {
+        return Err(format!(
+            "fft_size must be a power of 2 and at least 4, got {fft_size}"
+        ));
     }
 
     // Default hop_size = fft_size / 4 (75% overlap, standard for OLA).
@@ -186,17 +194,18 @@ fn set_bypass(state: State<'_, AppState>, bypass: bool) -> Result<(), String> {
     engine_state.engine.set_bypass(bypass)
 }
 
-/// List available audio output devices.
+/// List available audio devices (both input and output).
 #[tauri::command]
 fn get_devices() -> Vec<DeviceInfo> {
-    list_output_devices()
-        .into_iter()
-        .map(|d| DeviceInfo {
-            name: d.name,
-            is_input: d.is_input,
-            is_output: d.is_output,
-        })
-        .collect()
+    let to_info = |d: fourier_audio_io::AudioDevice| DeviceInfo {
+        name: d.name,
+        is_input: d.is_input,
+        is_output: d.is_output,
+    };
+
+    let mut devices: Vec<DeviceInfo> = list_input_devices().into_iter().map(to_info).collect();
+    devices.extend(list_output_devices().into_iter().map(to_info));
+    devices
 }
 
 // ---------------------------------------------------------------------------

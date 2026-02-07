@@ -109,7 +109,7 @@ export function setBypass(bypass: boolean): Promise<void> {
   return invoke("set_bypass", { bypass });
 }
 
-/** List available audio output devices. */
+/** List available audio devices (both input and output). */
 export function getDevices(): Promise<DeviceInfo[]> {
   return invoke("get_devices");
 }
