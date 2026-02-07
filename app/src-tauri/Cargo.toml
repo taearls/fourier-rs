@@ -1,0 +1,15 @@
+[package]
+name = "fourier-app"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+description = "Fourier-RS desktop synthesizer — Tauri v2 application"
+
+[build-dependencies]
+tauri-build.workspace = true
+
+[dependencies]
+tauri.workspace = true
+
+[lints]
+workspace = true

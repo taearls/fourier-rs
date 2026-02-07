@@ -8,6 +8,7 @@ members = [
     "crates/ffi",
     "crates/file-io",
     "examples/cli",
+    "app/src-tauri",
 ]
 
 [workspace.package]
@@ -36,6 +37,10 @@ crossbeam-channel = "0.5"
 # Numeric
 num-complex = "0.4"
 num-traits = "0.2"
+
+# Tauri
+tauri = { version = "2", features = [] }
+tauri-build = { version = "2", features = [] }
 
 # Workspace crates
 fourier-core = { path = "crates/core" }
