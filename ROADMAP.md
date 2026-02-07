@@ -8,11 +8,11 @@
 
 ## Open Issues Summary
 
-**22 open issues** across 7 phases (6 completed)
+**21 open issues** across 7 phases (7 completed)
 
 | Priority | Count | Issues |
 |----------|-------|--------|
-| :red_circle: Critical | 5 | #14, #15, #16, #17, #19 |
+| :red_circle: Critical | 4 | #15, #16, #17, #19 |
 | :yellow_circle: High | 7 | #7, #8, #9, #18, #20, #25, #26 |
 | :green_circle: Medium | 7 | #3, #4, #11, #12, #21, #23, #24 |
 | :large_blue_circle: Low | 3 | #10, #27, #28 |
@@ -35,6 +35,7 @@ The following capabilities already exist in the codebase:
 - **Engine source integration** &mdash; `SourceSpec` enum, `AudioSource` trait, oscillator/noise/additive sources in `crates/engine/`
 - **WAV file reading** &mdash; `crates/file-io/` with `AudioBuffer`, `load_wav()`, format normalization
 - **Tauri desktop app** &mdash; `app/` with Tauri v2 + SolidJS frontend, `fourier-engine` dependency
+- **Tauri engine commands** &mdash; `start_engine`, `stop_engine`, `set_transform`, `set_gain`, `set_bypass`, `get_devices` via Tauri IPC with TypeScript bindings
 
 ---
 
@@ -108,7 +109,7 @@ The following capabilities already exist in the codebase:
 | # | Title | Priority | Effort | Dependencies |
 |---|-------|----------|--------|--------------|
 | #13 | ~~Scaffold Tauri v2 desktop application with SolidJS~~ | :white_check_mark: Done | ~2 days | &mdash; |
-| #14 | Implement Tauri commands for engine lifecycle | :red_circle: Critical | ~2 days | #13 |
+| #14 | ~~Implement Tauri commands for engine lifecycle~~ | :white_check_mark: Done | ~2 days | #13 |
 | #15 | Implement spectral snapshot streaming to frontend | :red_circle: Critical | ~1 day | #14 |
 | #16 | Implement Tauri commands for sound source selection | :red_circle: Critical | ~1 day | #5, #8, #14 |
 
@@ -194,7 +195,7 @@ The minimum viable product requires completing these issues in order:
  └─► #5 Engine source integration ✅
       └─► #13 Tauri scaffold ✅
            └─► #22 Serde serialization ✅
-                └─► #14 Engine lifecycle commands
+                └─► #14 Engine lifecycle commands ✅
                      ├─► #15 Spectral streaming ──► #17 Spectrum viz
                      └─► #16 Source commands ──────► #19 Control panel
 ```
@@ -217,13 +218,16 @@ Start with dev infrastructure and the two critical Phase 1 issues that unblock e
 
 ### NEXT UP
 
-Phase 1 criticals are done. Moving to Phase 2 and app shell:
+App shell and engine commands done. Moving to streaming and source commands:
 
 4. ~~**#6** &mdash; Create fourier-file-io crate with WAV reading~~ `:white_check_mark:`
-5. **#7** &mdash; Add WAV file writing/export `:yellow_circle:`
-6. ~~**#13** &mdash; Scaffold Tauri v2 desktop application with SolidJS~~ `:white_check_mark:`
-7. ~~**#22** &mdash; Add serde serialization~~ `:white_check_mark:`
-8. **#25** &mdash; Add error handling and logging `:yellow_circle:`
+5. ~~**#13** &mdash; Scaffold Tauri v2 desktop application with SolidJS~~ `:white_check_mark:`
+6. ~~**#22** &mdash; Add serde serialization~~ `:white_check_mark:`
+7. ~~**#14** &mdash; Implement Tauri commands for engine lifecycle~~ `:white_check_mark:`
+8. **#15** &mdash; Implement spectral snapshot streaming to frontend `:red_circle:`
+9. **#16** &mdash; Implement Tauri commands for sound source selection `:red_circle:`
+10. **#7** &mdash; Add WAV file writing/export `:yellow_circle:`
+11. **#25** &mdash; Add error handling and logging `:yellow_circle:`
 
 ### PARALLEL TRACKS
 
@@ -264,7 +268,7 @@ These can proceed independently alongside the critical path:
 ### Batch 4: Engine Commands (Week 4)
 | Order | Issue | Rationale |
 |-------|-------|-----------|
-| 13 | #14 Engine lifecycle commands | Core Tauri API |
+| ~~13~~ | ~~#14 Engine lifecycle commands~~ | ~~Core Tauri API~~ :white_check_mark: |
 | 14 | #15 Spectral streaming | Enables visualization |
 | 15 | #16 Source selection commands | Enables source UI |
 
@@ -302,11 +306,11 @@ These can proceed independently alongside the critical path:
 | 1 &mdash; Sound Gen | 4 | 0 | 0 | 2 | 0 | 2 |
 | 2 &mdash; File I/O | 3 | 0 | 2 | 0 | 0 | 1 |
 | 3 &mdash; DSP | 4 | 0 | 1 | 2 | 1 | 0 |
-| 4 &mdash; Tauri | 4 | 3 | 0 | 0 | 0 | 1 |
+| 4 &mdash; Tauri | 4 | 2 | 0 | 0 | 0 | 2 |
 | 5 &mdash; UI | 5 | 2 | 2 | 1 | 0 | 0 |
 | 6 &mdash; Workflow | 3 | 0 | 0 | 2 | 0 | 1 |
 | 7 &mdash; Polish/Web | 5 | 0 | 2 | 0 | 2 | 1 |
-| **Total** | **28** | **5** | **7** | **7** | **3** | **6** |
+| **Total** | **28** | **4** | **7** | **7** | **3** | **7** |
 
 ---
 
@@ -327,6 +331,7 @@ These can proceed independently alongside the critical path:
 ## Changelog
 
 ### 2026-02-07
+- **Completed #14** (Tauri commands for engine lifecycle) &mdash; added `fourier-engine` and `fourier-audio-io` dependencies to `fourier-app`; implemented 6 Tauri commands in `app/src-tauri/src/lib.rs`: `start_engine(sample_rate, fft_size)` initializes engine with default audio devices and OLA processing, `stop_engine()` cleanly shuts down engine and releases streams, `set_transform(spec)` sends `TransformSpec` to processing thread, `set_gain(gain)` sets master output gain, `set_bypass(bypass)` toggles processing bypass, `get_devices()` lists available audio output devices; engine state managed via `Mutex<Option<EngineState>>` in Tauri managed state; `EngineState` holds `Engine` + `AudioStream` handles; `DeviceInfo` serializable struct for frontend; TypeScript type bindings in `app/src/bindings.ts` with typed wrappers for all commands, `TransformSpec`/`SourceSpec`/`DeviceInfo` types mirroring Rust serde representations; `lib.rs` exposes `run()` function called from `main.rs`
 - **Completed #22** (serde serialization for TransformSpec and SourceSpec) &mdash; added `serde` and `serde_json` to workspace dependencies; derived `Serialize`/`Deserialize` on `WaveformType` and `SpectralPeak` in `fourier-core`; derived on `EngineParams`, `NoiseType`, `Partial`, `SourceSpec`, `TransformSpec`, `ParamMessage`, and `SpectralSnapshot` in `fourier-engine`; used `#[serde(tag = "type")]` for internally tagged `SourceSpec` and `#[serde(tag = "type", content = "value")]` for adjacently tagged `TransformSpec` and `ParamMessage`; re-exported `TransformSpec` and `SpectralSnapshot` from engine crate root; added `PartialEq` to `TransformSpec`; 18 roundtrip tests covering all types, nested chains, and human-readable JSON verification
 - **Completed #13** (Tauri v2 desktop application with SolidJS) &mdash; created `app/` directory with Tauri v2 + SolidJS frontend; `app/src-tauri/Cargo.toml` depends on `fourier-engine` via workspace; Tauri config with 1200x800 window titled "Fourier-RS"; SolidJS frontend with Vite dev server (port 3000) and hot reload; dark-themed landing page; placeholder RGBA icons for macOS/Windows; `pnpm dev`/`pnpm build` scripts; added `app/src-tauri` to workspace members; `serde`, `serde_json`, `tauri`, and `tauri-build` as workspace dependencies
 
