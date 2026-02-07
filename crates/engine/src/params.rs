@@ -126,7 +126,10 @@ mod tests {
     fn source_spec_live_input_roundtrip() {
         let spec = SourceSpec::LiveInput;
         let json = roundtrip_json(&spec);
-        assert!(json.contains("\"type\""), "should use tagged representation");
+        assert!(
+            json.contains("\"type\""),
+            "should use tagged representation"
+        );
         assert!(json.contains("LiveInput"));
     }
 
