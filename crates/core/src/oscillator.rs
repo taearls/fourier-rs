@@ -6,8 +6,10 @@
 
 use std::f32::consts::{PI, TAU};
 
+use serde::{Deserialize, Serialize};
+
 /// Standard oscillator waveform shapes.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 pub enum WaveformType {
     Sine,
     Square,
