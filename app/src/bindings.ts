@@ -58,6 +58,27 @@ export type SourceSpec =
   | { type: "Additive"; partials: Partial[] };
 
 // ---------------------------------------------------------------------------
+// Spectral types (mirrors `SpectralSnapshot` / `SpectralPeak` in fourier-engine)
+// ---------------------------------------------------------------------------
+
+/** A detected peak in the frequency spectrum. */
+export interface SpectralPeak {
+  bin_index: number;
+  frequency_hz: number;
+  magnitude: number;
+  magnitude_db: number;
+}
+
+/** A point-in-time snapshot of the frequency spectrum from the engine. */
+export interface SpectralSnapshot {
+  magnitude_db: number[];
+  peaks: SpectralPeak[];
+  sample_rate: number;
+  fft_size: number;
+  timestamp_ms: number;
+}
+
+// ---------------------------------------------------------------------------
 // Command wrappers
 // ---------------------------------------------------------------------------
 
@@ -107,6 +128,17 @@ export function setGain(gain: number): Promise<void> {
  */
 export function setBypass(bypass: boolean): Promise<void> {
   return invoke("set_bypass", { bypass });
+}
+
+/**
+ * Get the latest spectral snapshot from the engine.
+ *
+ * Returns `null` when the engine is not running or no snapshot is available.
+ * Drains all pending snapshots and returns only the most recent one.
+ * Call this from a `requestAnimationFrame` loop for 60fps polling.
+ */
+export function getSpectrum(): Promise<SpectralSnapshot | null> {
+  return invoke("get_spectrum");
 }
 
 /** List available audio devices (both input and output). */

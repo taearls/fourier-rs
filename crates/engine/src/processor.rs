@@ -2,6 +2,7 @@
 //! audio I/O, DSP, and MIDI.
 
 use std::thread;
+use std::time::{SystemTime, UNIX_EPOCH};
 
 use crossbeam_channel::{bounded, Receiver, Sender};
 use serde::{Deserialize, Serialize};
@@ -28,6 +29,8 @@ pub struct SpectralSnapshot {
     pub sample_rate: f32,
     /// FFT size at time of snapshot.
     pub fft_size: usize,
+    /// Timestamp in milliseconds since Unix epoch.
+    pub timestamp_ms: f64,
 }
 
 /// The main audio-fourier engine.
@@ -137,6 +140,18 @@ impl Engine {
     /// Try to receive the latest spectral snapshot (non-blocking).
     pub fn try_recv_snapshot(&self) -> Option<SpectralSnapshot> {
         self.snapshot_rx.try_recv().ok()
+    }
+
+    /// Drain all pending snapshots and return only the most recent one.
+    ///
+    /// This prevents stale data from accumulating in the channel when the
+    /// frontend polls slower than the engine produces snapshots.
+    pub fn latest_snapshot(&self) -> Option<SpectralSnapshot> {
+        let mut latest = None;
+        while let Ok(snapshot) = self.snapshot_rx.try_recv() {
+            latest = Some(snapshot);
+        }
+        latest
     }
 
     /// Shut down the engine and join the processing thread.
@@ -272,11 +287,15 @@ fn processing_loop(
                     config.fft_size,
                     params.peak_threshold_db,
                 );
+                let timestamp_ms = SystemTime::now()
+                    .duration_since(UNIX_EPOCH)
+                    .map_or(0.0, |d| d.as_secs_f64() * 1000.0);
                 let snapshot = SpectralSnapshot {
                     magnitude_db,
                     peaks,
                     sample_rate: config.sample_rate,
                     fft_size: config.fft_size,
+                    timestamp_ms,
                 };
                 // Non-blocking: drop snapshot if UI can't keep up.
                 let _ = snapshot_tx.try_send(snapshot);
