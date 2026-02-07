@@ -4,7 +4,7 @@ use fourier_core::WaveformType;
 use serde::{Deserialize, Serialize};
 
 /// Run-time adjustable engine parameters.
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct EngineParams {
     /// Master output gain (linear, 0.0–1.0+).
     pub output_gain: f32,
@@ -252,11 +252,7 @@ mod tests {
             bypass: true,
             peak_threshold_db: -40.0,
         };
-        let json = serde_json::to_string_pretty(&params).unwrap();
-        let recovered: EngineParams = serde_json::from_str(&json).unwrap();
-        assert!((params.output_gain - recovered.output_gain).abs() < f32::EPSILON);
-        assert_eq!(params.bypass, recovered.bypass);
-        assert!((params.peak_threshold_db - recovered.peak_threshold_db).abs() < f32::EPSILON);
+        roundtrip_json(&params);
     }
 
     // --- ParamMessage roundtrips ---
