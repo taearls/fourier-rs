@@ -10,6 +10,6 @@ pub mod params;
 pub mod processor;
 pub mod source;
 
-pub use params::{EngineParams, NoiseType, ParamMessage, Partial, SourceSpec};
-pub use processor::Engine;
+pub use params::{EngineParams, NoiseType, ParamMessage, Partial, SourceSpec, TransformSpec};
+pub use processor::{Engine, SpectralSnapshot};
 pub use source::AudioSource;

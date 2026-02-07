@@ -1,9 +1,10 @@
 //! Spectral analysis utilities: peak detection, magnitude computation, etc.
 
 use num_complex::Complex;
+use serde::{Deserialize, Serialize};
 
 /// A detected spectral peak.
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, Serialize, Deserialize)]
 pub struct SpectralPeak {
     /// Bin index in the spectrum.
     pub bin_index: usize,

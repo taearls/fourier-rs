@@ -4,6 +4,7 @@
 use std::thread;
 
 use crossbeam_channel::{bounded, Receiver, Sender};
+use serde::{Deserialize, Serialize};
 
 use fourier_audio_io::ring_buffer::{AudioRingBuffer, RingConsumer, RingProducer};
 use fourier_core::overlap_add::{OlaConfig, OverlapAddProcessor};
@@ -17,7 +18,7 @@ use crate::params::{EngineParams, ParamMessage, SourceSpec, TransformSpec};
 use crate::source::{build_source, AudioSource};
 
 /// Snapshot of spectral data sent from the processing thread to the UI.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct SpectralSnapshot {
     /// Magnitude spectrum in dB.
     pub magnitude_db: Vec<f32>,

@@ -8,12 +8,12 @@
 
 ## Open Issues Summary
 
-**23 open issues** across 7 phases (5 completed)
+**22 open issues** across 7 phases (6 completed)
 
 | Priority | Count | Issues |
 |----------|-------|--------|
 | :red_circle: Critical | 5 | #14, #15, #16, #17, #19 |
-| :yellow_circle: High | 8 | #7, #8, #9, #18, #20, #22, #25, #26 |
+| :yellow_circle: High | 7 | #7, #8, #9, #18, #20, #25, #26 |
 | :green_circle: Medium | 7 | #3, #4, #11, #12, #21, #23, #24 |
 | :large_blue_circle: Low | 3 | #10, #27, #28 |
 
@@ -147,11 +147,11 @@ The following capabilities already exist in the codebase:
 
 > **Goal:** Presets, export, and serialization for productive sound design
 >
-> **Effort:** ~1.5 weeks &bull; **Status:** Not started
+> **Effort:** ~1.5 weeks &bull; **Status:** In progress
 
 | # | Title | Priority | Effort | Dependencies |
 |---|-------|----------|--------|--------------|
-| #22 | Add serde serialization to TransformSpec and SourceSpec | :yellow_circle: High | ~1 day | &mdash; |
+| #22 | ~~Add serde serialization to TransformSpec and SourceSpec~~ | :white_check_mark: Done | ~1 day | &mdash; |
 | #23 | Add preset save/load system | :green_circle: Medium | ~2 days | #22, #14 |
 | #24 | Add audio export (render engine output to WAV) | :green_circle: Medium | ~2 days | #7, #8, #14 |
 
@@ -193,7 +193,7 @@ The minimum viable product requires completing these issues in order:
 #2 Oscillators ✅
  └─► #5 Engine source integration ✅
       └─► #13 Tauri scaffold ✅
-           └─► #22 Serde serialization
+           └─► #22 Serde serialization ✅
                 └─► #14 Engine lifecycle commands
                      ├─► #15 Spectral streaming ──► #17 Spectrum viz
                      └─► #16 Source commands ──────► #19 Control panel
@@ -222,7 +222,7 @@ Phase 1 criticals are done. Moving to Phase 2 and app shell:
 4. ~~**#6** &mdash; Create fourier-file-io crate with WAV reading~~ `:white_check_mark:`
 5. **#7** &mdash; Add WAV file writing/export `:yellow_circle:`
 6. ~~**#13** &mdash; Scaffold Tauri v2 desktop application with SolidJS~~ `:white_check_mark:`
-7. **#22** &mdash; Add serde serialization `:yellow_circle:`
+7. ~~**#22** &mdash; Add serde serialization~~ `:white_check_mark:`
 8. **#25** &mdash; Add error handling and logging `:yellow_circle:`
 
 ### PARALLEL TRACKS
@@ -257,7 +257,7 @@ These can proceed independently alongside the critical path:
 | Order | Issue | Rationale |
 |-------|-------|-----------|
 | ~~9~~ | ~~#13 Tauri scaffold~~ | ~~Unblocks all frontend work~~ :white_check_mark: |
-| 10 | #22 Serde serialization | Needed for Tauri IPC |
+| ~~10~~ | ~~#22 Serde serialization~~ | ~~Needed for Tauri IPC~~ :white_check_mark: |
 | 11 | #25 Error handling | Clean up before more code |
 | 12 | #8 Audio file source | Depends on #5, #6 |
 
@@ -304,9 +304,9 @@ These can proceed independently alongside the critical path:
 | 3 &mdash; DSP | 4 | 0 | 1 | 2 | 1 | 0 |
 | 4 &mdash; Tauri | 4 | 3 | 0 | 0 | 0 | 1 |
 | 5 &mdash; UI | 5 | 2 | 2 | 1 | 0 | 0 |
-| 6 &mdash; Workflow | 3 | 0 | 1 | 2 | 0 | 0 |
+| 6 &mdash; Workflow | 3 | 0 | 0 | 2 | 0 | 1 |
 | 7 &mdash; Polish/Web | 5 | 0 | 2 | 0 | 2 | 1 |
-| **Total** | **28** | **5** | **8** | **7** | **3** | **5** |
+| **Total** | **28** | **5** | **7** | **7** | **3** | **6** |
 
 ---
 
@@ -327,6 +327,7 @@ These can proceed independently alongside the critical path:
 ## Changelog
 
 ### 2026-02-07
+- **Completed #22** (serde serialization for TransformSpec and SourceSpec) &mdash; added `serde` and `serde_json` to workspace dependencies; derived `Serialize`/`Deserialize` on `WaveformType` and `SpectralPeak` in `fourier-core`; derived on `EngineParams`, `NoiseType`, `Partial`, `SourceSpec`, `TransformSpec`, `ParamMessage`, and `SpectralSnapshot` in `fourier-engine`; used `#[serde(tag = "type")]` for internally tagged `SourceSpec` and `#[serde(tag = "type", content = "value")]` for adjacently tagged `TransformSpec` and `ParamMessage`; re-exported `TransformSpec` and `SpectralSnapshot` from engine crate root; added `PartialEq` to `TransformSpec`; 18 roundtrip tests covering all types, nested chains, and human-readable JSON verification
 - **Completed #13** (Tauri v2 desktop application with SolidJS) &mdash; created `app/` directory with Tauri v2 + SolidJS frontend; `app/src-tauri/Cargo.toml` depends on `fourier-engine` via workspace; Tauri config with 1200x800 window titled "Fourier-RS"; SolidJS frontend with Vite dev server (port 3000) and hot reload; dark-themed landing page; placeholder RGBA icons for macOS/Windows; `pnpm dev`/`pnpm build` scripts; added `app/src-tauri` to workspace members; `serde`, `serde_json`, `tauri`, and `tauri-build` as workspace dependencies
 
 ### 2026-02-06
