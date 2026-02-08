@@ -157,7 +157,7 @@ pub unsafe extern "C" fn engine_get_spectrum(
         return 0;
     }
 
-    match ffi.engine.try_recv_snapshot() {
+    match ffi.engine.latest_snapshot() {
         Some(snapshot) => {
             let n = snapshot.magnitude_db.len().min(max_bins);
             unsafe {

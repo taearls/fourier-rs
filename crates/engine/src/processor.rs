@@ -137,11 +137,6 @@ impl Engine {
         self.send_param(ParamMessage::SetSource(spec))
     }
 
-    /// Try to receive the latest spectral snapshot (non-blocking).
-    pub fn try_recv_snapshot(&self) -> Option<SpectralSnapshot> {
-        self.snapshot_rx.try_recv().ok()
-    }
-
     /// Drain all pending snapshots and return only the most recent one.
     ///
     /// This prevents stale data from accumulating in the channel when the
@@ -499,7 +494,7 @@ mod tests {
         // Should eventually receive a spectral snapshot.
         let mut got_snapshot = false;
         for _ in 0..10 {
-            if let Some(snapshot) = engine.try_recv_snapshot() {
+            if let Some(snapshot) = engine.latest_snapshot() {
                 assert_eq!(snapshot.fft_size, fft_size);
                 assert!((snapshot.sample_rate - sample_rate).abs() < 0.01);
                 assert!(!snapshot.magnitude_db.is_empty());
@@ -706,7 +701,7 @@ mod tests {
         // The spectral snapshot should show the 200 Hz peak.
         let mut got_peak = false;
         for _ in 0..20 {
-            if let Some(snapshot) = engine.try_recv_snapshot() {
+            if let Some(snapshot) = engine.latest_snapshot() {
                 // Find the bin with maximum energy.
                 if let Some((peak_bin, _)) = snapshot
                     .magnitude_db
