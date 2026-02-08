@@ -13,6 +13,7 @@ tauri.workspace = true
 serde.workspace = true
 fourier-engine.workspace = true
 fourier-audio-io.workspace = true
+fourier-file-io.workspace = true
 
 [lints]
 workspace = true
