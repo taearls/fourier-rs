@@ -1,6 +1,6 @@
 # Fourier-RS Roadmap
 
-> **Last updated:** 2026-02-07
+> **Last updated:** 2026-02-08
 >
 > Real-time audio DSP framework &rarr; Tauri desktop synthesizer with Fourier analysis
 
@@ -8,12 +8,12 @@
 
 ## Open Issues Summary
 
-**20 open issues** across 7 phases (8 completed)
+**19 open issues** across 7 phases (9 completed)
 
 | Priority | Count | Issues |
 |----------|-------|--------|
 | :red_circle: Critical | 3 | #16, #17, #19 |
-| :yellow_circle: High | 7 | #7, #8, #9, #18, #20, #25, #26 |
+| :yellow_circle: High | 6 | #7, #9, #18, #20, #25, #26 |
 | :green_circle: Medium | 7 | #3, #4, #11, #12, #21, #23, #24 |
 | :large_blue_circle: Low | 3 | #10, #27, #28 |
 
@@ -34,6 +34,7 @@ The following capabilities already exist in the codebase:
 - **Oscillator** &mdash; Sine, Square, Sawtooth, Triangle waveforms in `crates/core/`
 - **Engine source integration** &mdash; `SourceSpec` enum, `AudioSource` trait, oscillator/noise/additive sources in `crates/engine/`
 - **WAV file reading** &mdash; `crates/file-io/` with `AudioBuffer`, `load_wav()`, format normalization
+- **Audio buffer playback** &mdash; `SourceSpec::AudioBuffer` with `Arc<AudioBuffer>`, looping, and `ParamMessage::Seek` position control; mono mixdown for multi-channel buffers
 - **Tauri desktop app** &mdash; `app/` with Tauri v2 + SolidJS frontend, `fourier-engine` dependency
 - **Tauri engine commands** &mdash; `start_engine`, `stop_engine`, `set_transform`, `set_gain`, `set_bypass`, `get_devices` via Tauri IPC with TypeScript bindings
 - **Spectral snapshot streaming** &mdash; `get_spectrum` Tauri command returning `SpectralSnapshot` (magnitudes, peaks, sample_rate, fft_size, timestamp) with drain-to-latest polling for 60fps frontend consumption
@@ -71,12 +72,12 @@ The following capabilities already exist in the codebase:
 |---|-------|----------|--------|--------------|
 | #6 | ~~Create fourier-file-io crate with WAV reading~~ | :white_check_mark: Done | ~2 days | &mdash; |
 | #7 | Add WAV file writing/export | :yellow_circle: High | ~1 day | #6 |
-| #8 | Add loaded audio file as engine source | :yellow_circle: High | ~2 days | #5, #6 |
+| #8 | ~~Add loaded audio file as engine source~~ | :white_check_mark: Done | ~2 days | #5, #6 |
 
 **Key deliverables:**
 - New `crates/file-io/` crate using `hound`
 - `AudioBuffer` struct, `load_wav()`, `save_wav()`
-- `SourceSpec::AudioBuffer` variant with looping and seek
+- ~~`SourceSpec::AudioBuffer` variant with looping and seek~~ :white_check_mark:
 
 ---
 
@@ -112,7 +113,7 @@ The following capabilities already exist in the codebase:
 | #13 | ~~Scaffold Tauri v2 desktop application with SolidJS~~ | :white_check_mark: Done | ~2 days | &mdash; |
 | #14 | ~~Implement Tauri commands for engine lifecycle~~ | :white_check_mark: Done | ~2 days | #13 |
 | #15 | ~~Implement spectral snapshot streaming to frontend~~ | :white_check_mark: Done | ~1 day | #14 |
-| #16 | Implement Tauri commands for sound source selection | :red_circle: Critical | ~1 day | #5, #8, #14 |
+| #16 | Implement Tauri commands for sound source selection | :red_circle: Critical | ~1 day | ~~#5~~, ~~#8~~, ~~#14~~ |
 
 **Key deliverables:**
 - `app/` directory with Tauri v2 + SolidJS
@@ -226,9 +227,10 @@ App shell and engine commands done. Moving to streaming and source commands:
 6. ~~**#22** &mdash; Add serde serialization~~ `:white_check_mark:`
 7. ~~**#14** &mdash; Implement Tauri commands for engine lifecycle~~ `:white_check_mark:`
 8. ~~**#15** &mdash; Implement spectral snapshot streaming to frontend~~ `:white_check_mark:`
-9. **#16** &mdash; Implement Tauri commands for sound source selection `:red_circle:`
-10. **#7** &mdash; Add WAV file writing/export `:yellow_circle:`
-11. **#25** &mdash; Add error handling and logging `:yellow_circle:`
+9. ~~**#8** &mdash; Add loaded audio file as engine source~~ `:white_check_mark:`
+10. **#16** &mdash; Implement Tauri commands for sound source selection `:red_circle:`
+11. **#7** &mdash; Add WAV file writing/export `:yellow_circle:`
+12. **#25** &mdash; Add error handling and logging `:yellow_circle:`
 
 ### PARALLEL TRACKS
 
@@ -264,7 +266,7 @@ These can proceed independently alongside the critical path:
 | ~~9~~ | ~~#13 Tauri scaffold~~ | ~~Unblocks all frontend work~~ :white_check_mark: |
 | ~~10~~ | ~~#22 Serde serialization~~ | ~~Needed for Tauri IPC~~ :white_check_mark: |
 | 11 | #25 Error handling | Clean up before more code |
-| 12 | #8 Audio file source | Depends on #5, #6 |
+| ~~12~~ | ~~#8 Audio file source~~ | ~~Depends on #5, #6~~ :white_check_mark: |
 
 ### Batch 4: Engine Commands (Week 4)
 | Order | Issue | Rationale |
@@ -305,13 +307,13 @@ These can proceed independently alongside the critical path:
 | Phase | Total | Critical | High | Medium | Low | Done |
 |-------|-------|----------|------|--------|-----|------|
 | 1 &mdash; Sound Gen | 4 | 0 | 0 | 2 | 0 | 2 |
-| 2 &mdash; File I/O | 3 | 0 | 2 | 0 | 0 | 1 |
+| 2 &mdash; File I/O | 3 | 0 | 1 | 0 | 0 | 2 |
 | 3 &mdash; DSP | 4 | 0 | 1 | 2 | 1 | 0 |
 | 4 &mdash; Tauri | 4 | 1 | 0 | 0 | 0 | 3 |
 | 5 &mdash; UI | 5 | 2 | 2 | 1 | 0 | 0 |
 | 6 &mdash; Workflow | 3 | 0 | 0 | 2 | 0 | 1 |
 | 7 &mdash; Polish/Web | 5 | 0 | 2 | 0 | 2 | 1 |
-| **Total** | **28** | **3** | **7** | **7** | **3** | **8** |
+| **Total** | **28** | **3** | **6** | **7** | **3** | **9** |
 
 ---
 
@@ -330,6 +332,9 @@ These can proceed independently alongside the critical path:
 ---
 
 ## Changelog
+
+### 2026-02-08
+- **Completed #8** (loaded audio file as engine source) &mdash; added `fourier-file-io` dependency to `fourier-engine`; added `SourceSpec::AudioBuffer { buffer: Option<Arc<AudioBuffer>>, looping: bool }` variant with `#[serde(skip)]` on the buffer field (runtime-only handle, not serializable); added `ParamMessage::Seek(f32)` for normalized position control (0.0 = start, 1.0 = end); implemented `AudioBufferSource` struct with position tracking, seamless looping (wraps to start at buffer end), mono mixdown for multi-channel buffers via channel averaging, and `seek()` method with clamping; added `seek()` default method to `AudioSource` trait (no-op for non-seekable sources); integrated Seek handling in the processing loop; added `Engine::seek()` convenience method; custom `PartialEq` for `SourceSpec` using `Arc::ptr_eq` for buffer comparison; 17 new tests: 11 unit tests (mono playback, stereo mixdown, looping, seek, seek clamping, empty buffer, build_source for AudioBuffer), 4 integration tests (buffer through OLA pipeline, looping continuity, seek, rapid source switching), 3 serde roundtrip tests (AudioBuffer variant, Seek message, buffer skip verification)
 
 ### 2026-02-07
 - **Completed #15** (spectral snapshot streaming to frontend) &mdash; added `timestamp_ms` field (milliseconds since Unix epoch) to `SpectralSnapshot` struct in `crates/engine/src/processor.rs`; added `Engine::latest_snapshot()` method that drains all pending snapshots and returns only the most recent one, preventing stale data accumulation when the frontend polls slower than the engine produces; added `get_spectrum` Tauri command in `app/src-tauri/src/lib.rs` returning `Option<SpectralSnapshot>` — returns `null` gracefully when engine is not running or no snapshot is available; registered `get_spectrum` in the Tauri handler list; added TypeScript types `SpectralPeak` and `SpectralSnapshot` interfaces and `getSpectrum()` async wrapper in `app/src/bindings.ts`; design ensures audio thread is never blocked (non-blocking `try_recv` drain loop), bounded channel (capacity 4) drops old snapshots when UI can't keep up, and Mutex lock is held only briefly for the drain operation

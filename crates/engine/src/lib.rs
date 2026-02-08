@@ -12,4 +12,4 @@ pub mod source;
 
 pub use params::{EngineParams, NoiseType, ParamMessage, Partial, SourceSpec, TransformSpec};
 pub use processor::{Engine, SpectralSnapshot};
-pub use source::AudioSource;
+pub use source::{AudioBufferSource, AudioSource};

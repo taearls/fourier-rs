@@ -1,6 +1,9 @@
 //! Engine parameter types and lock-free parameter messaging.
 
+use std::sync::Arc;
+
 use fourier_core::WaveformType;
+use fourier_file_io::AudioBuffer;
 use serde::{Deserialize, Serialize};
 
 /// Run-time adjustable engine parameters.
@@ -48,7 +51,10 @@ pub struct Partial {
 ///
 /// This is a serializable description; the engine constructs the actual
 /// source objects from this spec.
-#[derive(Debug, Default, Clone, PartialEq, Serialize, Deserialize)]
+///
+/// The `AudioBuffer` variant contains an `Arc<AudioBuffer>` that is not
+/// serializable — it is loaded at runtime and referenced by handle.
+#[derive(Debug, Default, Clone, Serialize, Deserialize)]
 #[serde(tag = "type")]
 pub enum SourceSpec {
     /// Live audio input (microphone / line-in via ring buffer).
@@ -67,6 +73,63 @@ pub enum SourceSpec {
     },
     /// Additive synthesis from a set of partials.
     Additive { partials: Vec<Partial> },
+    /// Play back a loaded audio buffer through the pipeline.
+    AudioBuffer {
+        /// The audio buffer to play. Skipped during serialization.
+        #[serde(skip)]
+        buffer: Option<Arc<AudioBuffer>>,
+        /// Whether to loop playback when reaching the end.
+        looping: bool,
+    },
+}
+
+impl PartialEq for SourceSpec {
+    fn eq(&self, other: &Self) -> bool {
+        match (self, other) {
+            (Self::LiveInput, Self::LiveInput) => true,
+            (
+                Self::Oscillator {
+                    waveform: w1,
+                    frequency: f1,
+                    amplitude: a1,
+                },
+                Self::Oscillator {
+                    waveform: w2,
+                    frequency: f2,
+                    amplitude: a2,
+                },
+            ) => w1 == w2 && f1 == f2 && a1 == a2,
+            (
+                Self::Noise {
+                    noise_type: n1,
+                    amplitude: a1,
+                },
+                Self::Noise {
+                    noise_type: n2,
+                    amplitude: a2,
+                },
+            ) => n1 == n2 && a1 == a2,
+            (Self::Additive { partials: p1 }, Self::Additive { partials: p2 }) => p1 == p2,
+            (
+                Self::AudioBuffer {
+                    buffer: b1,
+                    looping: l1,
+                },
+                Self::AudioBuffer {
+                    buffer: b2,
+                    looping: l2,
+                },
+            ) => {
+                let bufs_eq = match (b1, b2) {
+                    (Some(a), Some(b)) => Arc::ptr_eq(a, b),
+                    (None, None) => true,
+                    _ => false,
+                };
+                bufs_eq && l1 == l2
+            }
+            _ => false,
+        }
+    }
 }
 
 /// Messages sent from UI → processing thread to update parameters.
@@ -83,6 +146,8 @@ pub enum ParamMessage {
     SetTransform(TransformSpec),
     /// Replace the audio source.
     SetSource(SourceSpec),
+    /// Seek to a position in the audio buffer (0.0 = start, 1.0 = end).
+    Seek(f32),
     /// Stop the engine.
     Shutdown,
 }
@@ -105,6 +170,7 @@ pub enum TransformSpec {
 #[allow(clippy::unwrap_used, clippy::expect_used)]
 mod tests {
     use super::*;
+    use std::sync::Arc;
 
     /// Helper: serialize to JSON, then deserialize back and assert equality.
     fn roundtrip_json<T>(value: &T) -> String
@@ -297,6 +363,58 @@ mod tests {
         let json = serde_json::to_string_pretty(&msg).unwrap();
         let recovered: ParamMessage = serde_json::from_str(&json).unwrap();
         assert!(matches!(recovered, ParamMessage::Shutdown));
+    }
+
+    #[test]
+    fn param_message_seek_roundtrip() {
+        let msg = ParamMessage::Seek(0.5);
+        let json = serde_json::to_string_pretty(&msg).unwrap();
+        assert!(json.contains("Seek"));
+        let recovered: ParamMessage = serde_json::from_str(&json).unwrap();
+        match recovered {
+            ParamMessage::Seek(pos) => assert!((pos - 0.5).abs() < f32::EPSILON),
+            other => panic!("expected Seek, got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn source_spec_audio_buffer_roundtrip() {
+        // AudioBuffer serializes with buffer skipped (becomes None on deserialize).
+        let spec = SourceSpec::AudioBuffer {
+            buffer: None,
+            looping: true,
+        };
+        let json = roundtrip_json(&spec);
+        assert!(json.contains("AudioBuffer"));
+        assert!(json.contains("\"looping\": true"));
+    }
+
+    #[test]
+    fn source_spec_audio_buffer_with_buffer_serializes_without_buffer() {
+        let buf = Arc::new(AudioBuffer {
+            samples: vec![0.0; 100],
+            sample_rate: 44100,
+            channels: 1,
+        });
+        let spec = SourceSpec::AudioBuffer {
+            buffer: Some(buf),
+            looping: false,
+        };
+        let json = serde_json::to_string_pretty(&spec).unwrap();
+        // Buffer field is skipped in serialization.
+        assert!(!json.contains("samples"));
+        // Deserialize — buffer comes back as None.
+        let recovered: SourceSpec = serde_json::from_str(&json).unwrap();
+        match recovered {
+            SourceSpec::AudioBuffer { buffer, looping } => {
+                assert!(
+                    buffer.is_none(),
+                    "buffer should be None after deserialization"
+                );
+                assert!(!looping);
+            }
+            other => panic!("expected AudioBuffer, got {other:?}"),
+        }
     }
 
     // --- JSON readability ---

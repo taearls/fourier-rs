@@ -137,6 +137,15 @@ impl Engine {
         self.send_param(ParamMessage::SetSource(spec))
     }
 
+    /// Seek to a normalized position in the current audio source.
+    ///
+    /// `position` is clamped to `[0.0, 1.0]` where 0.0 is the start and
+    /// 1.0 is the end. Has no effect if the current source doesn't support
+    /// seeking (e.g. oscillators, noise).
+    pub fn seek(&self, position: f32) -> Result<(), String> {
+        self.send_param(ParamMessage::Seek(position))
+    }
+
     /// Drain all pending snapshots and return only the most recent one.
     ///
     /// This prevents stale data from accumulating in the channel when the
@@ -227,6 +236,11 @@ fn processing_loop(
                 }
                 ParamMessage::SetSource(spec) => {
                     source = build_source(&spec, config.sample_rate);
+                }
+                ParamMessage::Seek(pos) => {
+                    if let Some(ref mut src) = source {
+                        src.seek(pos);
+                    }
                 }
                 ParamMessage::Shutdown => return,
             }
@@ -758,6 +772,173 @@ mod tests {
                 .set_source(SourceSpec::Noise {
                     noise_type: crate::params::NoiseType::Pink,
                     amplitude: 0.3,
+                })
+                .unwrap();
+        }
+
+        thread::sleep(std::time::Duration::from_millis(50));
+        engine.shutdown();
+    }
+
+    // --- AudioBuffer source integration tests ---
+
+    #[test]
+    fn engine_audio_buffer_source_produces_output() {
+        let fft_size = 256;
+        let hop_size = 128;
+        let sample_rate = 44100.0;
+
+        // Create a mono buffer with a 440 Hz sine wave (1 second).
+        let num_frames = sample_rate as usize;
+        let samples: Vec<f32> = (0..num_frames)
+            .map(|i| (2.0 * std::f32::consts::PI * 440.0 * i as f32 / sample_rate).sin())
+            .collect();
+        let buffer = std::sync::Arc::new(fourier_file_io::AudioBuffer {
+            samples,
+            sample_rate: sample_rate as u32,
+            channels: 1,
+        });
+
+        let (engine, io) = Engine::new(sample_rate, fft_size, hop_size);
+        engine.set_transform(TransformSpec::Identity).unwrap();
+        engine
+            .set_source(SourceSpec::AudioBuffer {
+                buffer: Some(buffer),
+                looping: false,
+            })
+            .unwrap();
+
+        let mut consumer = io.output_consumer;
+        thread::sleep(std::time::Duration::from_millis(200));
+
+        let mut output = vec![0.0_f32; 8192];
+        let n = consumer.pop_slice(&mut output);
+
+        assert!(n > 0, "audio buffer source should produce output");
+        let energy: f32 = output[..n].iter().map(|s| s * s).sum();
+        assert!(
+            energy > 0.0,
+            "audio buffer output should have nonzero energy"
+        );
+
+        engine.shutdown();
+    }
+
+    #[test]
+    fn engine_audio_buffer_looping_produces_continuous_output() {
+        let fft_size = 256;
+        let hop_size = 128;
+        let sample_rate = 44100.0;
+
+        // Create a very short buffer (256 samples) to force looping.
+        let num_frames = 256;
+        let samples: Vec<f32> = (0..num_frames)
+            .map(|i| (2.0 * std::f32::consts::PI * 440.0 * i as f32 / sample_rate).sin())
+            .collect();
+        let buffer = std::sync::Arc::new(fourier_file_io::AudioBuffer {
+            samples,
+            sample_rate: sample_rate as u32,
+            channels: 1,
+        });
+
+        let (engine, io) = Engine::new(sample_rate, fft_size, hop_size);
+        engine.set_transform(TransformSpec::Identity).unwrap();
+        engine
+            .set_source(SourceSpec::AudioBuffer {
+                buffer: Some(buffer),
+                looping: true,
+            })
+            .unwrap();
+
+        let mut consumer = io.output_consumer;
+
+        // Wait long enough that the buffer would have been exhausted without looping.
+        thread::sleep(std::time::Duration::from_millis(200));
+
+        let mut output = vec![0.0_f32; 8192];
+        let n = consumer.pop_slice(&mut output);
+
+        // With looping, should produce more output than the buffer length.
+        assert!(
+            n > num_frames,
+            "looping buffer should produce more output ({n}) than buffer length ({num_frames})"
+        );
+
+        engine.shutdown();
+    }
+
+    #[test]
+    fn engine_audio_buffer_seek() {
+        let fft_size = 256;
+        let hop_size = 128;
+        let sample_rate = 44100.0;
+
+        let num_frames = sample_rate as usize;
+        let samples: Vec<f32> = (0..num_frames)
+            .map(|i| (2.0 * std::f32::consts::PI * 440.0 * i as f32 / sample_rate).sin())
+            .collect();
+        let buffer = std::sync::Arc::new(fourier_file_io::AudioBuffer {
+            samples,
+            sample_rate: sample_rate as u32,
+            channels: 1,
+        });
+
+        let (engine, io) = Engine::new(sample_rate, fft_size, hop_size);
+        engine.set_transform(TransformSpec::Identity).unwrap();
+        engine
+            .set_source(SourceSpec::AudioBuffer {
+                buffer: Some(buffer),
+                looping: false,
+            })
+            .unwrap();
+
+        // Seek to the middle.
+        engine.seek(0.5).unwrap();
+
+        let mut consumer = io.output_consumer;
+        thread::sleep(std::time::Duration::from_millis(200));
+
+        let mut output = vec![0.0_f32; 8192];
+        let n = consumer.pop_slice(&mut output);
+
+        assert!(n > 0, "should produce output after seek");
+        let energy: f32 = output[..n].iter().map(|s| s * s).sum();
+        assert!(energy > 0.0, "output after seek should have energy");
+
+        engine.shutdown();
+    }
+
+    #[test]
+    fn engine_audio_buffer_switch_and_rapid_source_changes() {
+        let fft_size = 256;
+        let hop_size = 128;
+        let sample_rate = 44100.0;
+
+        let samples: Vec<f32> = (0..1024)
+            .map(|i| (2.0 * std::f32::consts::PI * 440.0 * i as f32 / sample_rate).sin())
+            .collect();
+        let buffer = std::sync::Arc::new(fourier_file_io::AudioBuffer {
+            samples,
+            sample_rate: sample_rate as u32,
+            channels: 1,
+        });
+
+        let (engine, _io) = Engine::new(sample_rate, fft_size, hop_size);
+
+        // Rapid switching between audio buffer and other sources.
+        for _ in 0..10 {
+            engine
+                .set_source(SourceSpec::AudioBuffer {
+                    buffer: Some(buffer.clone()),
+                    looping: true,
+                })
+                .unwrap();
+            engine.set_source(SourceSpec::LiveInput).unwrap();
+            engine
+                .set_source(SourceSpec::Oscillator {
+                    waveform: fourier_core::WaveformType::Sine,
+                    frequency: 440.0,
+                    amplitude: 1.0,
                 })
                 .unwrap();
         }
