@@ -14,6 +14,7 @@ export type RenderMode = "line" | "filled" | "bars";
 const VERTEX_SHADER_SRC = `
   attribute vec2 a_position;
   void main() {
+    gl_PointSize = 4.0;
     gl_Position = vec4(a_position, 0.0, 1.0);
   }
 `;
@@ -103,17 +104,38 @@ export class WebGLRenderer {
     gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
   }
 
-  /** Resize the WebGL viewport to match the canvas display size. */
-  resize(width: number, height: number): void {
+  /**
+   * Resize the WebGL canvas and set the viewport to the plot area.
+   *
+   * @param width - Full canvas width in physical pixels.
+   * @param height - Full canvas height in physical pixels.
+   * @param marginLeft - Left margin for axis labels (physical pixels).
+   * @param marginTop - Top margin (physical pixels).
+   * @param marginRight - Right margin (physical pixels).
+   * @param marginBottom - Bottom margin for frequency labels (physical pixels).
+   */
+  resize(
+    width: number,
+    height: number,
+    marginLeft = 0,
+    marginTop = 0,
+    marginRight = 0,
+    marginBottom = 0,
+  ): void {
     const gl = this.gl;
     gl.canvas.width = width;
     gl.canvas.height = height;
-    gl.viewport(0, 0, width, height);
+    // WebGL viewport origin is bottom-left, so marginBottom maps to y offset
+    const plotW = width - marginLeft - marginRight;
+    const plotH = height - marginTop - marginBottom;
+    gl.viewport(marginLeft, marginBottom, plotW, plotH);
   }
 
-  /** Clear the canvas to the background color. */
+  /** Clear the entire canvas to the background color. */
   clear(): void {
     const gl = this.gl;
+    // Temporarily set scissor to full canvas so clear covers everything
+    gl.disable(gl.SCISSOR_TEST);
     gl.clearColor(0.04, 0.04, 0.04, 1.0); // #0a0a0a
     gl.clear(gl.COLOR_BUFFER_BIT);
   }

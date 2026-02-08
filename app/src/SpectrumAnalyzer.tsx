@@ -123,18 +123,20 @@ const SpectrumAnalyzer: Component<SpectrumAnalyzerProps> = (props) => {
     const w = overlayCanvasRef.width;
     const h = overlayCanvasRef.height;
 
-    // Margins for axis labels
-    const marginLeft = 45;
-    const marginBottom = 28;
-    const marginTop = 10;
-    const marginRight = 10;
+    // Margins for axis labels (must match the shared constants above)
+    const dpr = window.devicePixelRatio || 1;
+    const marginLeft = Math.round(MARGIN_LEFT * dpr);
+    const marginBottom = Math.round(MARGIN_BOTTOM * dpr);
+    const marginTop = Math.round(MARGIN_TOP * dpr);
+    const marginRight = Math.round(MARGIN_RIGHT * dpr);
     const plotW = w - marginLeft - marginRight;
     const plotH = h - marginTop - marginBottom;
 
     ctx.clearRect(0, 0, w, h);
 
-    // Style
-    ctx.font = "11px -apple-system, BlinkMacSystemFont, sans-serif";
+    // Style — scale font size with DPR for crisp text on HiDPI
+    const fontSize = Math.round(11 * dpr);
+    ctx.font = `${fontSize}px -apple-system, BlinkMacSystemFont, sans-serif`;
     ctx.textBaseline = "middle";
 
     // --- Frequency axis (bottom) ---
@@ -152,7 +154,7 @@ const SpectrumAnalyzer: Component<SpectrumAnalyzerProps> = (props) => {
 
       // Label
       ctx.fillStyle = "rgba(255, 255, 255, 0.5)";
-      ctx.fillText(formatFreq(freq), x, marginTop + plotH + 14);
+      ctx.fillText(formatFreq(freq), x, marginTop + plotH + Math.round(14 * dpr));
     }
 
     // --- dB axis (left) ---
@@ -170,19 +172,26 @@ const SpectrumAnalyzer: Component<SpectrumAnalyzerProps> = (props) => {
 
       // Label
       ctx.fillStyle = "rgba(255, 255, 255, 0.5)";
-      ctx.fillText(`${db}`, marginLeft - 6, y);
+      ctx.fillText(`${db}`, marginLeft - Math.round(6 * dpr), y);
     }
 
     // Axis unit labels
     ctx.fillStyle = "rgba(255, 255, 255, 0.35)";
     ctx.textAlign = "center";
-    ctx.fillText("Hz", marginLeft + plotW / 2, h - 2);
+    ctx.fillText("Hz", marginLeft + plotW / 2, h - Math.round(2 * dpr));
     ctx.save();
-    ctx.translate(10, marginTop + plotH / 2);
+    ctx.translate(Math.round(10 * dpr), marginTop + plotH / 2);
     ctx.rotate(-Math.PI / 2);
     ctx.fillText("dB", 0, 0);
     ctx.restore();
   }
+
+  // --- Overlay margins (CSS pixels) ---
+  // These must match the values used in drawOverlay().
+  const MARGIN_LEFT = 45;
+  const MARGIN_TOP = 10;
+  const MARGIN_RIGHT = 10;
+  const MARGIN_BOTTOM = 28;
 
   // --- Resize handler ---
   function handleResize(): void {
@@ -193,10 +202,17 @@ const SpectrumAnalyzer: Component<SpectrumAnalyzerProps> = (props) => {
     const w = Math.round(rect.width * dpr);
     const h = Math.round(rect.height * dpr);
 
-    // Resize WebGL canvas
+    // Resize WebGL canvas — viewport is inset to match overlay margins
     canvasRef.width = w;
     canvasRef.height = h;
-    renderer?.resize(w, h);
+    renderer?.resize(
+      w,
+      h,
+      Math.round(MARGIN_LEFT * dpr),
+      Math.round(MARGIN_TOP * dpr),
+      Math.round(MARGIN_RIGHT * dpr),
+      Math.round(MARGIN_BOTTOM * dpr),
+    );
 
     // Resize overlay canvas
     overlayCanvasRef.width = w;
