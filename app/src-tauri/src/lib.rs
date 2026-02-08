@@ -11,7 +11,7 @@ use fourier_audio_io::stream::StreamConfig;
 use fourier_audio_io::{
     default_input_device, default_output_device, list_input_devices, list_output_devices,
 };
-use fourier_engine::{Engine, TransformSpec};
+use fourier_engine::{Engine, SpectralSnapshot, TransformSpec};
 
 // ---------------------------------------------------------------------------
 // Application state
@@ -194,6 +194,26 @@ fn set_bypass(state: State<'_, AppState>, bypass: bool) -> Result<(), String> {
     engine_state.engine.set_bypass(bypass)
 }
 
+/// Get the latest spectral snapshot from the engine.
+///
+/// Drains all pending snapshots and returns only the most recent one,
+/// preventing stale data from accumulating. Returns `null` when the engine
+/// is not running or no snapshot is available yet.
+#[tauri::command]
+#[allow(clippy::needless_pass_by_value, clippy::significant_drop_tightening)]
+fn get_spectrum(state: State<'_, AppState>) -> Result<Option<SpectralSnapshot>, String> {
+    let guard = state
+        .engine
+        .lock()
+        .map_err(|e| format!("Lock poisoned: {e}"))?;
+
+    let Some(engine_state) = guard.as_ref() else {
+        return Ok(None);
+    };
+
+    Ok(engine_state.engine.latest_snapshot())
+}
+
 /// List available audio devices (both input and output).
 #[tauri::command]
 fn get_devices() -> Vec<DeviceInfo> {
@@ -225,6 +245,7 @@ pub fn run() {
             set_transform,
             set_gain,
             set_bypass,
+            get_spectrum,
             get_devices,
         ])
         .run(tauri::generate_context!())

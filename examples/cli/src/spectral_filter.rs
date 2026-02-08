@@ -90,7 +90,7 @@ fn main() {
 
     loop {
         std::thread::sleep(std::time::Duration::from_millis(500));
-        if let Some(snapshot) = engine.try_recv_snapshot() {
+        if let Some(snapshot) = engine.latest_snapshot() {
             let n_peaks = snapshot.peaks.len();
             if let Some(peak) = snapshot.peaks.first() {
                 println!(
