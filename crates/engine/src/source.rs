@@ -190,6 +190,10 @@ impl AudioSource for AdditiveSource {
 ///
 /// Reads mono samples from the buffer (mixing stereo to mono if needed)
 /// and optionally loops when reaching the end.
+///
+/// **Note:** Samples are played back at the engine's sample rate regardless
+/// of the buffer's native rate. No sample rate conversion is performed, so
+/// a buffer recorded at a different rate will play back at the wrong pitch.
 pub struct AudioBufferSource {
     /// Shared reference to the audio buffer data.
     buffer: Arc<AudioBuffer>,
@@ -587,9 +591,8 @@ mod tests {
         // Seek before start — should clamp to start.
         source.seek(-1.0);
         source.generate(&mut output);
-        let expected_0 = 0.0_f32 / 100.0;
         assert!(
-            (output[0] - expected_0).abs() < 1e-6,
+            output[0].abs() < 1e-6,
             "seek before start should clamp to frame 0"
         );
     }

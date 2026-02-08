@@ -55,7 +55,8 @@ export type SourceSpec =
       amplitude: number;
     }
   | { type: "Noise"; noise_type: NoiseType; amplitude: number }
-  | { type: "Additive"; partials: Partial[] };
+  | { type: "Additive"; partials: Partial[] }
+  | { type: "AudioBuffer"; looping: boolean };
 
 // ---------------------------------------------------------------------------
 // Spectral types (mirrors `SpectralSnapshot` / `SpectralPeak` in fourier-engine)
