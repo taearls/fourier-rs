@@ -12,8 +12,9 @@ use fourier_audio_io::stream::StreamConfig;
 use fourier_audio_io::{
     default_input_device, default_output_device, list_input_devices, list_output_devices,
 };
-use fourier_core::WaveformType;
-use fourier_engine::{Engine, NoiseType, SourceSpec, SpectralSnapshot, TransformSpec};
+use fourier_engine::{
+    Engine, NoiseType, SourceSpec, SpectralSnapshot, TransformSpec, WaveformType,
+};
 
 // ---------------------------------------------------------------------------
 // Application state
@@ -234,27 +235,33 @@ fn get_devices() -> Vec<DeviceInfo> {
 // Source selection commands
 // ---------------------------------------------------------------------------
 
-/// Parse a waveform name string into a `WaveformType`.
+/// Parse a waveform name string into a `WaveformType` (case-insensitive).
 fn parse_waveform(waveform: &str) -> Result<WaveformType, String> {
-    match waveform {
-        "Sine" | "sine" => Ok(WaveformType::Sine),
-        "Square" | "square" => Ok(WaveformType::Square),
-        "Sawtooth" | "sawtooth" => Ok(WaveformType::Sawtooth),
-        "Triangle" | "triangle" => Ok(WaveformType::Triangle),
-        other => Err(format!(
-            "Unknown waveform: \"{other}\". Expected one of: Sine, Square, Sawtooth, Triangle"
-        )),
+    if waveform.eq_ignore_ascii_case("sine") {
+        Ok(WaveformType::Sine)
+    } else if waveform.eq_ignore_ascii_case("square") {
+        Ok(WaveformType::Square)
+    } else if waveform.eq_ignore_ascii_case("sawtooth") {
+        Ok(WaveformType::Sawtooth)
+    } else if waveform.eq_ignore_ascii_case("triangle") {
+        Ok(WaveformType::Triangle)
+    } else {
+        Err(format!(
+            "Unknown waveform: \"{waveform}\". Expected one of: Sine, Square, Sawtooth, Triangle"
+        ))
     }
 }
 
-/// Parse a noise type name string into a `NoiseType`.
+/// Parse a noise type name string into a `NoiseType` (case-insensitive).
 fn parse_noise_type(noise_type: &str) -> Result<NoiseType, String> {
-    match noise_type {
-        "White" | "white" => Ok(NoiseType::White),
-        "Pink" | "pink" => Ok(NoiseType::Pink),
-        other => Err(format!(
-            "Unknown noise type: \"{other}\". Expected one of: White, Pink"
-        )),
+    if noise_type.eq_ignore_ascii_case("white") {
+        Ok(NoiseType::White)
+    } else if noise_type.eq_ignore_ascii_case("pink") {
+        Ok(NoiseType::Pink)
+    } else {
+        Err(format!(
+            "Unknown noise type: \"{noise_type}\". Expected one of: White, Pink"
+        ))
     }
 }
 
