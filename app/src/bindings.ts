@@ -190,3 +190,14 @@ export function setSourceFile(
 ): Promise<void> {
   return invoke("set_source_file", { path, looping });
 }
+
+/**
+ * Seek to a normalized position in the current audio source.
+ *
+ * Only meaningful for seekable sources (e.g. audio buffer playback).
+ *
+ * @param position - Normalized position (0.0 = start, 1.0 = end).
+ */
+export function seekSource(position: number): Promise<void> {
+  return invoke("seek_source", { position });
+}

@@ -1,5 +1,6 @@
 import { createSignal, onCleanup, onMount, type Component } from "solid-js";
 import { getSpectrum, type SpectralSnapshot } from "./bindings";
+import ControlPanel from "./ControlPanel";
 import SpectrumAnalyzer from "./SpectrumAnalyzer";
 import type { RenderMode } from "./webgl-renderer";
 
@@ -55,7 +56,10 @@ const App: Component = () => {
           </button>
         </div>
       </header>
-      <SpectrumAnalyzer snapshot={snapshot()} mode={renderMode()} />
+      <div class="app-body">
+        <SpectrumAnalyzer snapshot={snapshot()} mode={renderMode()} />
+        <ControlPanel />
+      </div>
     </main>
   );
 };
