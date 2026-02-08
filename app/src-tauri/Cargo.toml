@@ -10,6 +10,7 @@ tauri-build.workspace = true
 
 [dependencies]
 tauri.workspace = true
+tauri-plugin-dialog.workspace = true
 serde.workspace = true
 fourier-engine.workspace = true
 fourier-audio-io.workspace = true

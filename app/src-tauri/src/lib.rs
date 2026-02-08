@@ -359,6 +359,25 @@ fn set_source_file(state: State<'_, AppState>, path: String, looping: bool) -> R
     })
 }
 
+/// Seek to a normalized position in the current audio source.
+///
+/// `position` is normalized: 0.0 = start, 1.0 = end. This is only
+/// meaningful for seekable sources (e.g. audio buffer playback).
+#[tauri::command]
+#[allow(clippy::needless_pass_by_value, clippy::significant_drop_tightening)]
+fn seek_source(state: State<'_, AppState>, position: f32) -> Result<(), String> {
+    let guard = state
+        .engine
+        .lock()
+        .map_err(|e| format!("Lock poisoned: {e}"))?;
+
+    let engine_state = guard
+        .as_ref()
+        .ok_or_else(|| "Engine is not running".to_string())?;
+
+    engine_state.engine.seek(position)
+}
+
 // ---------------------------------------------------------------------------
 // Public setup function for main.rs
 // ---------------------------------------------------------------------------
@@ -369,6 +388,7 @@ fn set_source_file(state: State<'_, AppState>, path: String, looping: bool) -> R
 #[allow(clippy::expect_used)]
 pub fn run() {
     tauri::Builder::default()
+        .plugin(tauri_plugin_dialog::init())
         .manage(AppState::default())
         .invoke_handler(tauri::generate_handler![
             start_engine,
@@ -382,6 +402,7 @@ pub fn run() {
             set_source_oscillator,
             set_source_noise,
             set_source_file,
+            seek_source,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
