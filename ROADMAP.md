@@ -8,11 +8,11 @@
 
 ## Open Issues Summary
 
-**19 open issues** across 7 phases (9 completed)
+**18 open issues** across 7 phases (10 completed)
 
 | Priority | Count | Issues |
 |----------|-------|--------|
-| :red_circle: Critical | 3 | #16, #17, #19 |
+| :red_circle: Critical | 2 | #17, #19 |
 | :yellow_circle: High | 6 | #7, #9, #18, #20, #25, #26 |
 | :green_circle: Medium | 7 | #3, #4, #11, #12, #21, #23, #24 |
 | :large_blue_circle: Low | 3 | #10, #27, #28 |
@@ -38,6 +38,7 @@ The following capabilities already exist in the codebase:
 - **Tauri desktop app** &mdash; `app/` with Tauri v2 + SolidJS frontend, `fourier-engine` dependency
 - **Tauri engine commands** &mdash; `start_engine`, `stop_engine`, `set_transform`, `set_gain`, `set_bypass`, `get_devices` via Tauri IPC with TypeScript bindings
 - **Spectral snapshot streaming** &mdash; `get_spectrum` Tauri command returning `SpectralSnapshot` (magnitudes, peaks, sample_rate, fft_size, timestamp) with drain-to-latest polling for 60fps frontend consumption
+- **Source selection commands** &mdash; `set_source_live_input`, `set_source_oscillator`, `set_source_noise`, `set_source_file` Tauri commands with parameter validation, WAV loading via `fourier-file-io`, and TypeScript bindings
 
 ---
 
@@ -106,20 +107,20 @@ The following capabilities already exist in the codebase:
 
 > **Goal:** Desktop application shell with engine control from SolidJS frontend
 >
-> **Effort:** ~2 weeks &bull; **Status:** In progress
+> **Effort:** ~2 weeks &bull; **Status:** :white_check_mark: Complete
 
 | # | Title | Priority | Effort | Dependencies |
 |---|-------|----------|--------|--------------|
 | #13 | ~~Scaffold Tauri v2 desktop application with SolidJS~~ | :white_check_mark: Done | ~2 days | &mdash; |
 | #14 | ~~Implement Tauri commands for engine lifecycle~~ | :white_check_mark: Done | ~2 days | #13 |
 | #15 | ~~Implement spectral snapshot streaming to frontend~~ | :white_check_mark: Done | ~1 day | #14 |
-| #16 | Implement Tauri commands for sound source selection | :red_circle: Critical | ~1 day | ~~#5~~, ~~#8~~, ~~#14~~ |
+| #16 | ~~Implement Tauri commands for sound source selection~~ | :white_check_mark: Done | ~1 day | ~~#5~~, ~~#8~~, ~~#14~~ |
 
 **Key deliverables:**
 - `app/` directory with Tauri v2 + SolidJS
 - Tauri commands: `start_engine`, `stop_engine`, `set_transform`, `get_spectrum`, etc.
 - ~~30-60fps spectral snapshot polling~~ :white_check_mark:
-- Source selection commands (live, oscillator, noise, file)
+- ~~Source selection commands (live, oscillator, noise, file)~~ :white_check_mark:
 
 ---
 
@@ -199,7 +200,7 @@ The minimum viable product requires completing these issues in order:
            └─► #22 Serde serialization ✅
                 └─► #14 Engine lifecycle commands ✅
                      ├─► #15 Spectral streaming ✅ ──► #17 Spectrum viz
-                     └─► #16 Source commands ──────► #19 Control panel
+                     └─► #16 Source commands ✅ ──► #19 Control panel
 ```
 
 **Critical path issues:** #2 &rarr; #5 &rarr; #13 &rarr; #22 &rarr; #14 &rarr; #15 &rarr; #16 &rarr; #17 &rarr; #19
@@ -228,7 +229,7 @@ App shell and engine commands done. Moving to streaming and source commands:
 7. ~~**#14** &mdash; Implement Tauri commands for engine lifecycle~~ `:white_check_mark:`
 8. ~~**#15** &mdash; Implement spectral snapshot streaming to frontend~~ `:white_check_mark:`
 9. ~~**#8** &mdash; Add loaded audio file as engine source~~ `:white_check_mark:`
-10. **#16** &mdash; Implement Tauri commands for sound source selection `:red_circle:`
+10. ~~**#16** &mdash; Implement Tauri commands for sound source selection~~ `:white_check_mark:`
 11. **#7** &mdash; Add WAV file writing/export `:yellow_circle:`
 12. **#25** &mdash; Add error handling and logging `:yellow_circle:`
 
@@ -273,7 +274,7 @@ These can proceed independently alongside the critical path:
 |-------|-------|-----------|
 | ~~13~~ | ~~#14 Engine lifecycle commands~~ | ~~Core Tauri API~~ :white_check_mark: |
 | ~~14~~ | ~~#15 Spectral streaming~~ | ~~Enables visualization~~ :white_check_mark: |
-| 15 | #16 Source selection commands | Enables source UI |
+| ~~15~~ | ~~#16 Source selection commands~~ | ~~Enables source UI~~ :white_check_mark: |
 
 ### Batch 5: UI (Weeks 5-6)
 | Order | Issue | Rationale |
@@ -309,11 +310,11 @@ These can proceed independently alongside the critical path:
 | 1 &mdash; Sound Gen | 4 | 0 | 0 | 2 | 0 | 2 |
 | 2 &mdash; File I/O | 3 | 0 | 1 | 0 | 0 | 2 |
 | 3 &mdash; DSP | 4 | 0 | 1 | 2 | 1 | 0 |
-| 4 &mdash; Tauri | 4 | 1 | 0 | 0 | 0 | 3 |
+| 4 &mdash; Tauri | 4 | 0 | 0 | 0 | 0 | 4 |
 | 5 &mdash; UI | 5 | 2 | 2 | 1 | 0 | 0 |
 | 6 &mdash; Workflow | 3 | 0 | 0 | 2 | 0 | 1 |
 | 7 &mdash; Polish/Web | 5 | 0 | 2 | 0 | 2 | 1 |
-| **Total** | **28** | **3** | **6** | **7** | **3** | **9** |
+| **Total** | **28** | **2** | **6** | **7** | **3** | **10** |
 
 ---
 
@@ -334,6 +335,7 @@ These can proceed independently alongside the critical path:
 ## Changelog
 
 ### 2026-02-08
+- **Completed #16** (Tauri commands for sound source selection) &mdash; added `fourier-core` and `fourier-file-io` dependencies to `fourier-app`; implemented 4 Tauri commands in `app/src-tauri/src/lib.rs`: `set_source_live_input()` switches to microphone/line-in, `set_source_oscillator(waveform, frequency)` creates oscillator source with waveform string validation (Sine/Square/Sawtooth/Triangle) and positive frequency check, `set_source_noise(noise_type)` creates noise source with type string validation (White/Pink), `set_source_file(path, looping)` loads WAV via `fourier_file_io::load_wav()` and wraps in `Arc<AudioBuffer>` for engine playback; all commands validate engine is running and return descriptive errors for invalid parameters; registered all 4 commands in the Tauri invoke handler; added TypeScript wrappers `setSourceLiveInput()`, `setSourceOscillator(waveform, frequency)`, `setSourceNoise(noiseType)`, `setSourceFile(path, looping)` in `app/src/bindings.ts` with typed `WaveformType` and `NoiseType` parameters; completes Phase 4 (Tauri App Setup) with all 4 issues done
 - **Completed #8** (loaded audio file as engine source) &mdash; added `fourier-file-io` dependency to `fourier-engine`; added `SourceSpec::AudioBuffer { buffer: Option<Arc<AudioBuffer>>, looping: bool }` variant with `#[serde(skip)]` on the buffer field (runtime-only handle, not serializable); added `ParamMessage::Seek(f32)` for normalized position control (0.0 = start, 1.0 = end); implemented `AudioBufferSource` struct with position tracking, seamless looping (wraps to start at buffer end), mono mixdown for multi-channel buffers via channel averaging, and `seek()` method with clamping; added `seek()` default method to `AudioSource` trait (no-op for non-seekable sources); integrated Seek handling in the processing loop; added `Engine::seek()` convenience method; custom `PartialEq` for `SourceSpec` using `Arc::ptr_eq` for buffer comparison; 17 new tests: 11 unit tests (mono playback, stereo mixdown, looping, seek, seek clamping, empty buffer, build_source for AudioBuffer), 4 integration tests (buffer through OLA pipeline, looping continuity, seek, rapid source switching), 3 serde roundtrip tests (AudioBuffer variant, Seek message, buffer skip verification)
 
 ### 2026-02-07

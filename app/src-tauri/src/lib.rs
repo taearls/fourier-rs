@@ -2,7 +2,8 @@
 //!
 //! Exposes the `fourier-engine` API to the `SolidJS` frontend via Tauri IPC.
 
-use std::sync::Mutex;
+use std::path::Path;
+use std::sync::{Arc, Mutex};
 
 use serde::Serialize;
 use tauri::State;
@@ -11,7 +12,8 @@ use fourier_audio_io::stream::StreamConfig;
 use fourier_audio_io::{
     default_input_device, default_output_device, list_input_devices, list_output_devices,
 };
-use fourier_engine::{Engine, SpectralSnapshot, TransformSpec};
+use fourier_core::WaveformType;
+use fourier_engine::{Engine, NoiseType, SourceSpec, SpectralSnapshot, TransformSpec};
 
 // ---------------------------------------------------------------------------
 // Application state
@@ -229,6 +231,128 @@ fn get_devices() -> Vec<DeviceInfo> {
 }
 
 // ---------------------------------------------------------------------------
+// Source selection commands
+// ---------------------------------------------------------------------------
+
+/// Parse a waveform name string into a `WaveformType`.
+fn parse_waveform(waveform: &str) -> Result<WaveformType, String> {
+    match waveform {
+        "Sine" | "sine" => Ok(WaveformType::Sine),
+        "Square" | "square" => Ok(WaveformType::Square),
+        "Sawtooth" | "sawtooth" => Ok(WaveformType::Sawtooth),
+        "Triangle" | "triangle" => Ok(WaveformType::Triangle),
+        other => Err(format!(
+            "Unknown waveform: \"{other}\". Expected one of: Sine, Square, Sawtooth, Triangle"
+        )),
+    }
+}
+
+/// Parse a noise type name string into a `NoiseType`.
+fn parse_noise_type(noise_type: &str) -> Result<NoiseType, String> {
+    match noise_type {
+        "White" | "white" => Ok(NoiseType::White),
+        "Pink" | "pink" => Ok(NoiseType::Pink),
+        other => Err(format!(
+            "Unknown noise type: \"{other}\". Expected one of: White, Pink"
+        )),
+    }
+}
+
+/// Switch the engine audio source to live input (microphone / line-in).
+#[tauri::command]
+#[allow(clippy::needless_pass_by_value, clippy::significant_drop_tightening)]
+fn set_source_live_input(state: State<'_, AppState>) -> Result<(), String> {
+    let guard = state
+        .engine
+        .lock()
+        .map_err(|e| format!("Lock poisoned: {e}"))?;
+
+    let engine_state = guard
+        .as_ref()
+        .ok_or_else(|| "Engine is not running".to_string())?;
+
+    engine_state.engine.set_source(SourceSpec::LiveInput)
+}
+
+/// Switch the engine audio source to a generated oscillator waveform.
+#[tauri::command]
+#[allow(clippy::needless_pass_by_value, clippy::significant_drop_tightening)]
+fn set_source_oscillator(
+    state: State<'_, AppState>,
+    waveform: String,
+    frequency: f32,
+) -> Result<(), String> {
+    let waveform = parse_waveform(&waveform)?;
+
+    if frequency <= 0.0 {
+        return Err(format!("Frequency must be positive, got {frequency}"));
+    }
+
+    let guard = state
+        .engine
+        .lock()
+        .map_err(|e| format!("Lock poisoned: {e}"))?;
+
+    let engine_state = guard
+        .as_ref()
+        .ok_or_else(|| "Engine is not running".to_string())?;
+
+    engine_state.engine.set_source(SourceSpec::Oscillator {
+        waveform,
+        frequency,
+        amplitude: 1.0,
+    })
+}
+
+/// Switch the engine audio source to a noise generator.
+#[tauri::command]
+#[allow(clippy::needless_pass_by_value, clippy::significant_drop_tightening)]
+fn set_source_noise(state: State<'_, AppState>, noise_type: String) -> Result<(), String> {
+    let noise_type = parse_noise_type(&noise_type)?;
+
+    let guard = state
+        .engine
+        .lock()
+        .map_err(|e| format!("Lock poisoned: {e}"))?;
+
+    let engine_state = guard
+        .as_ref()
+        .ok_or_else(|| "Engine is not running".to_string())?;
+
+    engine_state.engine.set_source(SourceSpec::Noise {
+        noise_type,
+        amplitude: 1.0,
+    })
+}
+
+/// Switch the engine audio source to a loaded WAV file.
+///
+/// Loads the WAV file at `path` via `fourier-file-io`, wraps it in an
+/// `Arc<AudioBuffer>`, and sends it to the engine as the active source.
+#[tauri::command]
+#[allow(clippy::needless_pass_by_value, clippy::significant_drop_tightening)]
+fn set_source_file(state: State<'_, AppState>, path: String, looping: bool) -> Result<(), String> {
+    let buffer = fourier_file_io::load_wav(Path::new(&path))
+        .map_err(|e| format!("Failed to load WAV file \"{path}\": {e}"))?;
+
+    let buffer = Arc::new(buffer);
+
+    let guard = state
+        .engine
+        .lock()
+        .map_err(|e| format!("Lock poisoned: {e}"))?;
+
+    let engine_state = guard
+        .as_ref()
+        .ok_or_else(|| "Engine is not running".to_string())?;
+
+    engine_state.engine.set_source(SourceSpec::AudioBuffer {
+        buffer: Some(buffer),
+        looping,
+    })
+}
+
+// ---------------------------------------------------------------------------
 // Public setup function for main.rs
 // ---------------------------------------------------------------------------
 
@@ -247,6 +371,10 @@ pub fn run() {
             set_bypass,
             get_spectrum,
             get_devices,
+            set_source_live_input,
+            set_source_oscillator,
+            set_source_noise,
+            set_source_file,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

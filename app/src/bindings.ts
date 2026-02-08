@@ -146,3 +146,47 @@ export function getSpectrum(): Promise<SpectralSnapshot | null> {
 export function getDevices(): Promise<DeviceInfo[]> {
   return invoke("get_devices");
 }
+
+// ---------------------------------------------------------------------------
+// Source selection commands
+// ---------------------------------------------------------------------------
+
+/** Switch the engine audio source to live input (microphone / line-in). */
+export function setSourceLiveInput(): Promise<void> {
+  return invoke("set_source_live_input");
+}
+
+/**
+ * Switch the engine audio source to a generated oscillator waveform.
+ *
+ * @param waveform - Waveform type: "Sine", "Square", "Sawtooth", or "Triangle".
+ * @param frequency - Frequency in Hz (must be positive).
+ */
+export function setSourceOscillator(
+  waveform: WaveformType,
+  frequency: number,
+): Promise<void> {
+  return invoke("set_source_oscillator", { waveform, frequency });
+}
+
+/**
+ * Switch the engine audio source to a noise generator.
+ *
+ * @param noiseType - Noise type: "White" or "Pink".
+ */
+export function setSourceNoise(noiseType: NoiseType): Promise<void> {
+  return invoke("set_source_noise", { noiseType });
+}
+
+/**
+ * Switch the engine audio source to a loaded WAV file.
+ *
+ * @param path - Absolute path to a WAV file on disk.
+ * @param looping - Whether to loop playback when reaching the end.
+ */
+export function setSourceFile(
+  path: string,
+  looping: boolean,
+): Promise<void> {
+  return invoke("set_source_file", { path, looping });
+}
