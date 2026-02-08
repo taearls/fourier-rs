@@ -2,6 +2,7 @@
   --bg: #0a0a0a;
   --fg: #e4e4e7;
   --accent: #7c3aed;
+  --accent-dim: rgba(124, 58, 237, 0.3);
 }
 
 * {
@@ -15,25 +16,90 @@ body {
   background-color: var(--bg);
   color: var(--fg);
   min-height: 100vh;
+  overflow: hidden;
 }
 
-.container {
+/* ---------- App layout ---------- */
+
+.app {
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+  padding: 0;
+}
+
+.app-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 20px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+  flex-shrink: 0;
+}
+
+.app-header h1 {
+  font-size: 1.2rem;
+  font-weight: 700;
+  color: var(--accent);
+}
+
+/* ---------- Render mode selector ---------- */
+
+.mode-selector {
+  display: flex;
+  gap: 4px;
+}
+
+.mode-selector button {
+  font-family: inherit;
+  font-size: 0.75rem;
+  padding: 4px 12px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 4px;
+  background: transparent;
+  color: rgba(255, 255, 255, 0.5);
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.mode-selector button:hover {
+  border-color: var(--accent);
+  color: var(--fg);
+}
+
+.mode-selector button.active {
+  background: var(--accent-dim);
+  border-color: var(--accent);
+  color: var(--fg);
+}
+
+/* ---------- Spectrum analyzer ---------- */
+
+.spectrum-analyzer {
+  flex: 1;
+  position: relative;
+  min-height: 0;
+}
+
+.spectrum-canvas,
+.spectrum-overlay {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+}
+
+.spectrum-overlay {
+  pointer-events: none;
+}
+
+.spectrum-fallback {
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  min-height: 100vh;
-  padding: 2rem;
-}
-
-h1 {
-  font-size: 2.5rem;
-  font-weight: 700;
-  color: var(--accent);
-  margin-bottom: 0.5rem;
-}
-
-p {
-  font-size: 1.1rem;
-  opacity: 0.7;
+  height: 100%;
+  opacity: 0.5;
+  gap: 0.5rem;
 }

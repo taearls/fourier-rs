@@ -8,11 +8,11 @@
 
 ## Open Issues Summary
 
-**18 open issues** across 7 phases (10 completed)
+**17 open issues** across 7 phases (11 completed)
 
 | Priority | Count | Issues |
 |----------|-------|--------|
-| :red_circle: Critical | 2 | #17, #19 |
+| :red_circle: Critical | 1 | #19 |
 | :yellow_circle: High | 6 | #7, #9, #18, #20, #25, #26 |
 | :green_circle: Medium | 7 | #3, #4, #11, #12, #21, #23, #24 |
 | :large_blue_circle: Low | 3 | #10, #27, #28 |
@@ -39,6 +39,7 @@ The following capabilities already exist in the codebase:
 - **Tauri engine commands** &mdash; `start_engine`, `stop_engine`, `set_transform`, `set_gain`, `set_bypass`, `get_devices` via Tauri IPC with TypeScript bindings
 - **Spectral snapshot streaming** &mdash; `get_spectrum` Tauri command returning `SpectralSnapshot` (magnitudes, peaks, sample_rate, fft_size, timestamp) with drain-to-latest polling for 60fps frontend consumption
 - **Source selection commands** &mdash; `set_source_live_input`, `set_source_oscillator`, `set_source_noise`, `set_source_file` Tauri commands with parameter validation, WAV loading via `fourier-file-io`, and TypeScript bindings
+- **Spectrum analyzer** &mdash; `<SpectrumAnalyzer />` SolidJS component with WebGL rendering, log frequency axis (20Hz&ndash;20kHz), dB magnitude axis (-90&ndash;0 dB), line/filled/bars render modes, peak hold with decay, responsive resize, graceful WebGL fallback
 
 ---
 
@@ -128,18 +129,18 @@ The following capabilities already exist in the codebase:
 
 > **Goal:** Visual interface for spectrum analysis, waveform display, and controls
 >
-> **Effort:** ~3 weeks &bull; **Status:** Not started
+> **Effort:** ~3 weeks &bull; **Status:** In progress
 
 | # | Title | Priority | Effort | Dependencies |
 |---|-------|----------|--------|--------------|
-| #17 | Build spectrum analyzer visualization with WebGL | :red_circle: Critical | ~3 days | #15 |
+| #17 | ~~Build spectrum analyzer visualization with WebGL~~ | :white_check_mark: Done | ~3 days | ~~#15~~ |
 | #18 | Build waveform/oscilloscope display | :yellow_circle: High | ~2 days | #14, #15 |
 | #19 | Build transport and source control panel | :red_circle: Critical | ~2 days | #14, #16 |
 | #20 | Build transform/filter control panel | :yellow_circle: High | ~2 days | #9, #14 |
 | #21 | Build peak frequency and note detection display | :green_circle: Medium | ~1 day | #15 |
 
 **Key deliverables:**
-- `<SpectrumAnalyzer />` &mdash; WebGL, log freq axis, dB magnitude, peak markers
+- ~~`<SpectrumAnalyzer />` &mdash; WebGL, log freq axis, dB magnitude, peak markers~~ :white_check_mark:
 - `<WaveformDisplay />` &mdash; WebGL oscilloscope with zero-crossing trigger
 - `<ControlPanel />` &mdash; source selector, oscillator/noise/file controls, gain
 - `<TransformPanel />` &mdash; EQ bands, pitch shift, freeze toggle, chain management
@@ -199,7 +200,7 @@ The minimum viable product requires completing these issues in order:
       └─► #13 Tauri scaffold ✅
            └─► #22 Serde serialization ✅
                 └─► #14 Engine lifecycle commands ✅
-                     ├─► #15 Spectral streaming ✅ ──► #17 Spectrum viz
+                     ├─► #15 Spectral streaming ✅ ──► #17 Spectrum viz ✅
                      └─► #16 Source commands ✅ ──► #19 Control panel
 ```
 
@@ -230,8 +231,10 @@ App shell and engine commands done. Moving to streaming and source commands:
 8. ~~**#15** &mdash; Implement spectral snapshot streaming to frontend~~ `:white_check_mark:`
 9. ~~**#8** &mdash; Add loaded audio file as engine source~~ `:white_check_mark:`
 10. ~~**#16** &mdash; Implement Tauri commands for sound source selection~~ `:white_check_mark:`
-11. **#7** &mdash; Add WAV file writing/export `:yellow_circle:`
-12. **#25** &mdash; Add error handling and logging `:yellow_circle:`
+11. ~~**#17** &mdash; Build spectrum analyzer visualization with WebGL~~ `:white_check_mark:`
+12. **#19** &mdash; Build transport and source control panel `:red_circle:`
+13. **#7** &mdash; Add WAV file writing/export `:yellow_circle:`
+14. **#25** &mdash; Add error handling and logging `:yellow_circle:`
 
 ### PARALLEL TRACKS
 
@@ -279,7 +282,7 @@ These can proceed independently alongside the critical path:
 ### Batch 5: UI (Weeks 5-6)
 | Order | Issue | Rationale |
 |-------|-------|-----------|
-| 16 | #17 Spectrum analyzer (WebGL) | Flagship visualization |
+| ~~16~~ | ~~#17 Spectrum analyzer (WebGL)~~ | ~~Flagship visualization~~ :white_check_mark: |
 | 17 | #19 Transport/source control panel | Core user interaction |
 | 18 | #18 Waveform display | Second visualization |
 | 19 | #20 Transform control panel | Effect parameter UI |
@@ -311,10 +314,10 @@ These can proceed independently alongside the critical path:
 | 2 &mdash; File I/O | 3 | 0 | 1 | 0 | 0 | 2 |
 | 3 &mdash; DSP | 4 | 0 | 1 | 2 | 1 | 0 |
 | 4 &mdash; Tauri | 4 | 0 | 0 | 0 | 0 | 4 |
-| 5 &mdash; UI | 5 | 2 | 2 | 1 | 0 | 0 |
+| 5 &mdash; UI | 5 | 1 | 2 | 1 | 0 | 1 |
 | 6 &mdash; Workflow | 3 | 0 | 0 | 2 | 0 | 1 |
 | 7 &mdash; Polish/Web | 5 | 0 | 2 | 0 | 2 | 1 |
-| **Total** | **28** | **2** | **6** | **7** | **3** | **10** |
+| **Total** | **28** | **1** | **6** | **7** | **3** | **11** |
 
 ---
 
@@ -335,6 +338,7 @@ These can proceed independently alongside the critical path:
 ## Changelog
 
 ### 2026-02-08
+- **Completed #17** (spectrum analyzer visualization with WebGL) &mdash; created `<SpectrumAnalyzer />` SolidJS component in `app/src/SpectrumAnalyzer.tsx` with WebGL-based real-time spectrum rendering at 60fps; log frequency axis mapping 20Hz&ndash;20kHz with labeled ticks at standard audio frequencies (20, 50, 100, 200, 500, 1k, 2k, 5k, 10k, 20k Hz); dB magnitude axis mapping -90dB to 0dB with labeled ticks; three configurable render modes: line (LINE_STRIP), filled (TRIANGLE_STRIP with semi-transparent fill + line overlay), and bars (individual quads per bin); peak hold markers with 1s hold time and 40dB/s decay rate; responsive to container/window resize via ResizeObserver with devicePixelRatio-aware scaling; 2D canvas overlay for axis grid lines and labels; graceful fallback message when WebGL is unavailable; `app/src/webgl-renderer.ts` manages WebGL shaders, buffers, and draw calls with reusable pre-allocated buffers for minimal GC pressure; `app/src/spectrum-utils.ts` provides frequency/magnitude mapping utilities (`freqToNorm`, `dbToNorm`, `binToFreq`) and vertex builders for all three render modes; render mode selector UI in App header with line/filled/bars toggle buttons; `requestAnimationFrame`-paced polling loop in `App.tsx` calling `getSpectrum()` for ~60fps data updates; updated `styles.css` with full-viewport layout, stacked canvas positioning, and dark-themed mode selector; begins Phase 5 (UI Components)
 - **Completed #16** (Tauri commands for sound source selection) &mdash; added `fourier-core` and `fourier-file-io` dependencies to `fourier-app`; implemented 4 Tauri commands in `app/src-tauri/src/lib.rs`: `set_source_live_input()` switches to microphone/line-in, `set_source_oscillator(waveform, frequency)` creates oscillator source with waveform string validation (Sine/Square/Sawtooth/Triangle) and positive frequency check, `set_source_noise(noise_type)` creates noise source with type string validation (White/Pink), `set_source_file(path, looping)` loads WAV via `fourier_file_io::load_wav()` and wraps in `Arc<AudioBuffer>` for engine playback; all commands validate engine is running and return descriptive errors for invalid parameters; registered all 4 commands in the Tauri invoke handler; added TypeScript wrappers `setSourceLiveInput()`, `setSourceOscillator(waveform, frequency)`, `setSourceNoise(noiseType)`, `setSourceFile(path, looping)` in `app/src/bindings.ts` with typed `WaveformType` and `NoiseType` parameters; completes Phase 4 (Tauri App Setup) with all 4 issues done
 - **Completed #8** (loaded audio file as engine source) &mdash; added `fourier-file-io` dependency to `fourier-engine`; added `SourceSpec::AudioBuffer { buffer: Option<Arc<AudioBuffer>>, looping: bool }` variant with `#[serde(skip)]` on the buffer field (runtime-only handle, not serializable); added `ParamMessage::Seek(f32)` for normalized position control (0.0 = start, 1.0 = end); implemented `AudioBufferSource` struct with position tracking, seamless looping (wraps to start at buffer end), mono mixdown for multi-channel buffers via channel averaging, and `seek()` method with clamping; added `seek()` default method to `AudioSource` trait (no-op for non-seekable sources); integrated Seek handling in the processing loop; added `Engine::seek()` convenience method; custom `PartialEq` for `SourceSpec` using `Arc::ptr_eq` for buffer comparison; 17 new tests: 11 unit tests (mono playback, stereo mixdown, looping, seek, seek clamping, empty buffer, build_source for AudioBuffer), 4 integration tests (buffer through OLA pipeline, looping continuity, seek, rapid source switching), 3 serde roundtrip tests (AudioBuffer variant, Seek message, buffer skip verification)
 
