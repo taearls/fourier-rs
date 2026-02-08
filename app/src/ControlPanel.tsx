@@ -19,6 +19,11 @@ import {
 
 type SourceType = "live" | "oscillator" | "noise" | "file";
 
+// Default engine configuration.
+// TODO: query the system default output device's native sample rate (#19 follow-up)
+const DEFAULT_SAMPLE_RATE = 44_100;
+const DEFAULT_FFT_SIZE = 2048;
+
 // ---------------------------------------------------------------------------
 // Component
 // ---------------------------------------------------------------------------
@@ -64,8 +69,7 @@ const ControlPanel: Component = () => {
   function fileName(): string {
     const p = filePath();
     if (!p) return "No file selected";
-    const parts = p.split("/");
-    return parts[parts.length - 1] ?? p;
+    return p.replace(/.*[/\\]/, "") || p;
   }
 
   // -----------------------------------------------------------------------
@@ -78,7 +82,7 @@ const ControlPanel: Component = () => {
         await stopEngine();
         setRunning(false);
       } else {
-        await startEngine(44100, 2048);
+        await startEngine(DEFAULT_SAMPLE_RATE, DEFAULT_FFT_SIZE);
         setRunning(true);
         // Apply current gain after starting
         await setGain(gain());
@@ -182,12 +186,13 @@ const ControlPanel: Component = () => {
     }
   }
 
-  async function handleLoopingChange(loop: boolean): Promise<void> {
-    setLooping(loop);
+  async function handleLoopingChange(newLooping: boolean): Promise<void> {
+    setLooping(newLooping);
     const path = filePath();
     if (running() && source() === "file" && path) {
+      // TODO: add a dedicated set_looping command to avoid reloading the WAV
       await withError(async () => {
-        await setSourceFile(path, loop);
+        await setSourceFile(path, newLooping);
       });
     }
   }
