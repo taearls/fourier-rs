@@ -11,7 +11,7 @@ use fourier_audio_io::ring_buffer::{AudioRingBuffer, RingConsumer, RingProducer}
 use fourier_core::overlap_add::{OlaConfig, OverlapAddProcessor};
 use fourier_core::spectral::{detect_peaks, SpectralPeak};
 use fourier_core::transform::{
-    BandPassFilter, HighPassFilter, IdentityTransform, LowPassFilter, SpectralGain,
+    BandPassFilter, HighPassFilter, IdentityTransform, LowPassFilter, ParametricEq, SpectralGain,
     SpectralTransform, TransformChain,
 };
 
@@ -191,6 +191,7 @@ fn build_transform(spec: &TransformSpec) -> Box<dyn SpectralTransform> {
             high_hz: *high_hz,
         }),
         TransformSpec::Gain { factor } => Box::new(SpectralGain { gain: *factor }),
+        TransformSpec::ParametricEq { bands } => Box::new(ParametricEq::new(bands.clone())),
         TransformSpec::Chain(specs) => {
             let mut chain = TransformChain::new();
             for s in specs {
@@ -941,6 +942,95 @@ mod tests {
                     amplitude: 1.0,
                 })
                 .unwrap();
+        }
+
+        thread::sleep(std::time::Duration::from_millis(50));
+        engine.shutdown();
+    }
+
+    // --- Parametric EQ integration tests ---
+
+    #[test]
+    fn engine_parametric_eq_processes_audio() {
+        use fourier_core::transform::{BandType, EqBand};
+
+        let fft_size = 1024;
+        let hop_size = 512;
+        let sample_rate = 44100.0;
+
+        let (engine, io) = Engine::new(sample_rate, fft_size, hop_size);
+
+        // Apply a parametric EQ with a boost at 1000 Hz.
+        engine
+            .set_transform(TransformSpec::ParametricEq {
+                bands: vec![EqBand {
+                    frequency: 1000.0,
+                    gain_db: 6.0,
+                    q: 2.0,
+                    band_type: BandType::Peak,
+                }],
+            })
+            .unwrap();
+
+        // Use oscillator source at 1000 Hz (should be boosted).
+        engine
+            .set_source(SourceSpec::Oscillator {
+                waveform: fourier_core::WaveformType::Sine,
+                frequency: 1000.0,
+                amplitude: 0.5,
+            })
+            .unwrap();
+
+        let mut consumer = io.output_consumer;
+        thread::sleep(std::time::Duration::from_millis(200));
+
+        let mut output = vec![0.0_f32; 8192];
+        let n = consumer.pop_slice(&mut output);
+
+        assert!(n > 0, "parametric EQ should produce output");
+        let energy: f32 = output[..n].iter().map(|s| s * s).sum();
+        assert!(energy > 0.0, "output should have nonzero energy");
+
+        engine.shutdown();
+    }
+
+    #[test]
+    fn engine_parametric_eq_switch_does_not_panic() {
+        use fourier_core::transform::{BandType, EqBand};
+
+        let fft_size = 256;
+        let hop_size = 128;
+        let sample_rate = 44100.0;
+
+        let (engine, _io) = Engine::new(sample_rate, fft_size, hop_size);
+
+        // Rapidly switch between parametric EQ and other transforms.
+        for _ in 0..10 {
+            engine
+                .set_transform(TransformSpec::ParametricEq {
+                    bands: vec![
+                        EqBand {
+                            frequency: 200.0,
+                            gain_db: 6.0,
+                            q: 1.0,
+                            band_type: BandType::LowShelf,
+                        },
+                        EqBand {
+                            frequency: 2000.0,
+                            gain_db: -3.0,
+                            q: 4.0,
+                            band_type: BandType::Peak,
+                        },
+                        EqBand {
+                            frequency: 8000.0,
+                            gain_db: 3.0,
+                            q: 1.5,
+                            band_type: BandType::HighShelf,
+                        },
+                    ],
+                })
+                .unwrap();
+            engine.set_transform(TransformSpec::Identity).unwrap();
         }
 
         thread::sleep(std::time::Duration::from_millis(50));

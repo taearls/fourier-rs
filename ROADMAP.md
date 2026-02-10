@@ -1,6 +1,6 @@
 # Fourier-RS Roadmap
 
-> **Last updated:** 2026-02-08
+> **Last updated:** 2026-02-10
 >
 > Real-time audio DSP framework &rarr; Tauri desktop synthesizer with Fourier analysis
 
@@ -8,12 +8,12 @@
 
 ## Open Issues Summary
 
-**16 open issues** across 7 phases (12 completed)
+**15 open issues** across 7 phases (13 completed)
 
 | Priority | Count | Issues |
 |----------|-------|--------|
 | :red_circle: Critical | 0 | &mdash; |
-| :yellow_circle: High | 6 | #7, #9, #18, #20, #25, #26 |
+| :yellow_circle: High | 5 | #7, #18, #20, #25, #26 |
 | :green_circle: Medium | 7 | #3, #4, #11, #12, #21, #23, #24 |
 | :large_blue_circle: Low | 3 | #10, #27, #28 |
 
@@ -41,6 +41,7 @@ The following capabilities already exist in the codebase:
 - **Source selection commands** &mdash; `set_source_live_input`, `set_source_oscillator`, `set_source_noise`, `set_source_file` Tauri commands with parameter validation, WAV loading via `fourier-file-io`, and TypeScript bindings
 - **Spectrum analyzer** &mdash; `<SpectrumAnalyzer />` SolidJS component with WebGL rendering, log frequency axis (20Hz&ndash;20kHz), dB magnitude axis (-90&ndash;0 dB), line/filled/bars render modes, peak hold with decay, responsive resize, graceful WebGL fallback
 - **Control panel** &mdash; `<ControlPanel />` SolidJS component with source selector (Live/Oscillator/Noise/File), oscillator waveform+frequency controls, noise type selector, WAV file picker via native dialog + seek slider + loop toggle, engine start/stop button, master gain slider
+- **Parametric EQ** &mdash; `ParametricEq` spectral transform with `EqBand` (frequency, gain_db, q, band_type) and `BandType` enum (Peak, LowShelf, HighShelf); smooth bell curves for Peak, sigmoid transitions for shelves; `TransformSpec::ParametricEq` variant with serde support and TypeScript bindings
 
 ---
 
@@ -88,17 +89,17 @@ The following capabilities already exist in the codebase:
 
 > **Goal:** Richer spectral processing: EQ, delay, freeze, pitch shift
 >
-> **Effort:** ~2 weeks &bull; **Status:** Not started
+> **Effort:** ~2 weeks &bull; **Status:** In progress
 
 | # | Title | Priority | Effort | Dependencies |
 |---|-------|----------|--------|--------------|
-| #9 | Add parametric EQ as SpectralTransform | :yellow_circle: High | ~2 days | &mdash; |
+| #9 | ~~Add parametric EQ as SpectralTransform~~ | :white_check_mark: Done | ~2 days | &mdash; |
 | #10 | Add spectral delay effect | :large_blue_circle: Low | ~2 days | &mdash; |
 | #11 | Add spectral freeze/hold effect | :green_circle: Medium | ~1 day | &mdash; |
 | #12 | Add pitch shifting via spectral bin rotation | :green_circle: Medium | ~2 days | &mdash; |
 
 **Key deliverables:**
-- `ParametricEq` with Peak/LowShelf/HighShelf bands
+- ~~`ParametricEq` with Peak/LowShelf/HighShelf bands~~ :white_check_mark:
 - `SpectralDelay` with per-band ring buffers
 - `SpectralFreeze` with smooth crossfade toggle
 - `PitchShift` with linear interpolation for fractional shifts
@@ -137,7 +138,7 @@ The following capabilities already exist in the codebase:
 | #17 | ~~Build spectrum analyzer visualization with WebGL~~ | :white_check_mark: Done | ~3 days | ~~#15~~ |
 | #18 | Build waveform/oscilloscope display | :yellow_circle: High | ~2 days | #14, #15 |
 | #19 | ~~Build transport and source control panel~~ | :white_check_mark: Done | ~2 days | ~~#14~~, ~~#16~~ |
-| #20 | Build transform/filter control panel | :yellow_circle: High | ~2 days | #9, #14 |
+| #20 | Build transform/filter control panel | :yellow_circle: High | ~2 days | ~~#9~~, #14 |
 | #21 | Build peak frequency and note detection display | :green_circle: Medium | ~1 day | #15 |
 
 **Key deliverables:**
@@ -241,7 +242,7 @@ App shell and engine commands done. Moving to streaming and source commands:
 
 These can proceed independently alongside the critical path:
 
-- **DSP track:** #9 (Parametric EQ), #11 (Freeze), #12 (Pitch shift)
+- **DSP track:** ~~#9 (Parametric EQ)~~, #11 (Freeze), #12 (Pitch shift)
 - **File I/O track:** #6, #7 (WAV read/write)
 - **Polish track:** #25, #26 (error handling, CI)
 
@@ -262,7 +263,7 @@ These can proceed independently alongside the critical path:
 |-------|-------|-----------|
 | ~~5~~ | ~~#6 WAV reading~~ | ~~Unblocks file playback~~ :white_check_mark: |
 | 6 | #7 WAV writing | Small addition to #6 |
-| 7 | #9 Parametric EQ | Key DSP feature |
+| ~~7~~ | ~~#9 Parametric EQ~~ | ~~Key DSP feature~~ :white_check_mark: |
 | 8 | #4 Additive synthesis | Depends on #2, enriches sources |
 
 ### Batch 3: App Shell (Week 3)
@@ -313,12 +314,12 @@ These can proceed independently alongside the critical path:
 |-------|-------|----------|------|--------|-----|------|
 | 1 &mdash; Sound Gen | 4 | 0 | 0 | 2 | 0 | 2 |
 | 2 &mdash; File I/O | 3 | 0 | 1 | 0 | 0 | 2 |
-| 3 &mdash; DSP | 4 | 0 | 1 | 2 | 1 | 0 |
+| 3 &mdash; DSP | 4 | 0 | 0 | 2 | 1 | 1 |
 | 4 &mdash; Tauri | 4 | 0 | 0 | 0 | 0 | 4 |
 | 5 &mdash; UI | 5 | 0 | 2 | 1 | 0 | 2 |
 | 6 &mdash; Workflow | 3 | 0 | 0 | 2 | 0 | 1 |
 | 7 &mdash; Polish/Web | 5 | 0 | 2 | 0 | 2 | 1 |
-| **Total** | **28** | **0** | **6** | **7** | **3** | **12** |
+| **Total** | **28** | **0** | **5** | **7** | **3** | **13** |
 
 ---
 
@@ -337,6 +338,9 @@ These can proceed independently alongside the critical path:
 ---
 
 ## Changelog
+
+### 2026-02-10
+- **Completed #9** (parametric EQ as SpectralTransform) &mdash; implemented `ParametricEq` struct implementing `SpectralTransform` in `crates/core/src/transform.rs`; `EqBand` struct with `frequency: f32`, `gain_db: f32`, `q: f32`, `band_type: BandType` fields; `BandType` enum with `Peak`, `LowShelf`, `HighShelf` variants; Peak bands apply bell-shaped gain curve using `(f/f0 - f0/f) * Q` bandwidth formula; LowShelf/HighShelf use sigmoid-based smooth transitions controlled by Q; multiple bands combine multiplicatively (summed in dB domain); DC bin left untouched; added `TransformSpec::ParametricEq { bands: Vec<EqBand> }` variant in `crates/engine/src/params.rs` with full serde support; wired `build_transform()` in `processor.rs` to construct `ParametricEq` from spec; re-exported `BandType`, `EqBand`, `ParametricEq` from `fourier-core` and `fourier-engine` crate roots; added `BandType`, `EqBand`, and `ParametricEq` TypeScript types in `app/src/bindings.ts`; 15 new unit tests in `fourier-core`: peak boost/cut/bell shape, Q bandwidth control, low shelf boost/cut, high shelf boost/cut, multi-band combination, zero gain unity, empty bands identity, DC untouched, name check; 7 new tests in `fourier-engine`: serde roundtrips for ParametricEq spec (single, empty, in chain), EqBand, BandType variants, ParamMessage with ParametricEq; 2 integration tests: engine processes audio through parametric EQ, rapid transform switching; begins Phase 3 (Enhanced DSP)
 
 ### 2026-02-08
 - **Completed #19** (transport and source control panel) &mdash; created `<ControlPanel />` SolidJS component in `app/src/ControlPanel.tsx` with reactive state management; source selector with 2x2 radio button grid switching between Live Input, Oscillator, Noise, and File sources; oscillator sub-panel with waveform dropdown (Sine/Square/Sawtooth/Triangle) and frequency slider (20&ndash;20,000 Hz) sending `setSourceOscillator()` on change; noise sub-panel with type dropdown (White/Pink) sending `setSourceNoise()` on change; file sub-panel with native WAV file picker via `@tauri-apps/plugin-dialog` `open()`, seek position slider (0.0&ndash;1.0) sending `seekSource()`, and loop checkbox sending `setSourceFile()` reload; engine start/stop button toggling `startEngine(44100, 2048)` / `stopEngine()` with visual state (green vs red); master gain slider (0&ndash;100%) sending `setGain()` in real-time; all controls auto-apply to running engine on parameter change; error display bar (click to dismiss); added `seek_source` Tauri command in `app/src-tauri/src/lib.rs` wrapping `engine.seek()`; registered `tauri-plugin-dialog` with capability permissions (`dialog:default`, `dialog:allow-open`); added `@tauri-apps/plugin-dialog` npm dependency and `tauri-plugin-dialog` Cargo dependency; updated `App.tsx` with side-by-side layout (`app-body` flex container) placing `<SpectrumAnalyzer />` and `<ControlPanel />` horizontally; updated `styles.css` with 280px fixed-width control panel, dark surface theme, styled range inputs, radio button grid, field layouts, and responsive file picker; completes the MVP critical path (all 9 critical-path issues now done)

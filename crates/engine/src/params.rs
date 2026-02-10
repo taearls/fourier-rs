@@ -2,6 +2,7 @@
 
 use std::sync::Arc;
 
+use fourier_core::transform::EqBand;
 use fourier_core::WaveformType;
 use fourier_file_io::AudioBuffer;
 use serde::{Deserialize, Serialize};
@@ -163,6 +164,7 @@ pub enum TransformSpec {
     HighPass { cutoff_hz: f32 },
     BandPass { low_hz: f32, high_hz: f32 },
     Gain { factor: f32 },
+    ParametricEq { bands: Vec<EqBand> },
     Chain(Vec<Self>),
 }
 
@@ -170,6 +172,7 @@ pub enum TransformSpec {
 #[allow(clippy::unwrap_used, clippy::expect_used)]
 mod tests {
     use super::*;
+    use fourier_core::transform::BandType;
     use std::sync::Arc;
 
     /// Helper: serialize to JSON, then deserialize back and assert equality.
@@ -444,6 +447,101 @@ mod tests {
             WaveformType::Triangle,
         ] {
             roundtrip_json(&waveform);
+        }
+    }
+
+    // --- ParametricEq TransformSpec roundtrips ---
+
+    #[test]
+    fn transform_spec_parametric_eq_roundtrip() {
+        let spec = TransformSpec::ParametricEq {
+            bands: vec![
+                EqBand {
+                    frequency: 100.0,
+                    gain_db: 6.0,
+                    q: 1.0,
+                    band_type: BandType::LowShelf,
+                },
+                EqBand {
+                    frequency: 1000.0,
+                    gain_db: -3.0,
+                    q: 2.0,
+                    band_type: BandType::Peak,
+                },
+                EqBand {
+                    frequency: 8000.0,
+                    gain_db: 4.5,
+                    q: 1.5,
+                    band_type: BandType::HighShelf,
+                },
+            ],
+        };
+        let json = roundtrip_json(&spec);
+        assert!(json.contains("ParametricEq"));
+        assert!(json.contains("LowShelf"));
+        assert!(json.contains("Peak"));
+        assert!(json.contains("HighShelf"));
+    }
+
+    #[test]
+    fn transform_spec_parametric_eq_empty_bands_roundtrip() {
+        let spec = TransformSpec::ParametricEq { bands: vec![] };
+        roundtrip_json(&spec);
+    }
+
+    #[test]
+    fn transform_spec_parametric_eq_in_chain_roundtrip() {
+        let spec = TransformSpec::Chain(vec![
+            TransformSpec::ParametricEq {
+                bands: vec![EqBand {
+                    frequency: 440.0,
+                    gain_db: 6.0,
+                    q: 2.0,
+                    band_type: BandType::Peak,
+                }],
+            },
+            TransformSpec::Gain { factor: 0.8 },
+        ]);
+        roundtrip_json(&spec);
+    }
+
+    #[test]
+    fn eq_band_roundtrip() {
+        let band = EqBand {
+            frequency: 1000.0,
+            gain_db: -6.0,
+            q: 1.41,
+            band_type: BandType::Peak,
+        };
+        roundtrip_json(&band);
+    }
+
+    #[test]
+    fn band_type_all_variants_roundtrip() {
+        for bt in [BandType::Peak, BandType::LowShelf, BandType::HighShelf] {
+            roundtrip_json(&bt);
+        }
+    }
+
+    #[test]
+    fn param_message_set_parametric_eq_roundtrip() {
+        let msg = ParamMessage::SetTransform(TransformSpec::ParametricEq {
+            bands: vec![EqBand {
+                frequency: 5000.0,
+                gain_db: 3.0,
+                q: 1.0,
+                band_type: BandType::HighShelf,
+            }],
+        });
+        let json = serde_json::to_string_pretty(&msg).unwrap();
+        assert!(json.contains("ParametricEq"));
+        let recovered: ParamMessage = serde_json::from_str(&json).unwrap();
+        match recovered {
+            ParamMessage::SetTransform(TransformSpec::ParametricEq { bands }) => {
+                assert_eq!(bands.len(), 1);
+                assert_eq!(bands[0].band_type, BandType::HighShelf);
+            }
+            other => panic!("expected SetTransform(ParametricEq), got {other:?}"),
         }
     }
 }

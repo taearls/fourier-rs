@@ -22,6 +22,17 @@ export interface DeviceInfo {
 // Transform types (mirrors `TransformSpec` in fourier-engine)
 // ---------------------------------------------------------------------------
 
+/** EQ band filter shape. */
+export type BandType = "Peak" | "LowShelf" | "HighShelf";
+
+/** A single parametric EQ band. */
+export interface EqBand {
+  frequency: number;
+  gain_db: number;
+  q: number;
+  band_type: BandType;
+}
+
 /** Serde-tagged union: `{ type: "Identity" }`, `{ type: "LowPass", value: { cutoff_hz: 1000 } }`, etc. */
 export type TransformSpec =
   | { type: "Identity" }
@@ -29,6 +40,7 @@ export type TransformSpec =
   | { type: "HighPass"; value: { cutoff_hz: number } }
   | { type: "BandPass"; value: { low_hz: number; high_hz: number } }
   | { type: "Gain"; value: { factor: number } }
+  | { type: "ParametricEq"; value: { bands: EqBand[] } }
   | { type: "Chain"; value: TransformSpec[] };
 
 // ---------------------------------------------------------------------------
