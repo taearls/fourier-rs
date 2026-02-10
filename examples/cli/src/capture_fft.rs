@@ -13,6 +13,13 @@ use fourier_core::window::{WindowFunction, WindowType};
 use cpal::traits::{DeviceTrait, HostTrait, StreamTrait};
 
 fn main() {
+    tracing_subscriber::fmt()
+        .with_env_filter(
+            tracing_subscriber::EnvFilter::try_from_default_env()
+                .unwrap_or_else(|_| tracing_subscriber::EnvFilter::new("info")),
+        )
+        .init();
+
     println!("=== capture-fft: Real-time FFT peak detection ===");
     println!("Press Ctrl+C to stop.\n");
 
@@ -93,7 +100,8 @@ fn main() {
         window.apply(&mut frame);
 
         // Forward FFT.
-        fft.forward(&mut frame, &mut spectrum);
+        fft.forward(&mut frame, &mut spectrum)
+            .expect("Forward FFT failed");
 
         // Detect peaks.
         let peaks = detect_peaks(&spectrum, sample_rate, fft_size, -40.0);

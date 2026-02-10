@@ -7,6 +7,7 @@ description = "Audio file I/O: WAV reading and writing"
 
 [dependencies]
 hound.workspace = true
+thiserror.workspace = true
 
 [lints]
 workspace = true

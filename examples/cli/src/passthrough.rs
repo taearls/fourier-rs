@@ -11,6 +11,13 @@ use fourier_engine::processor::Engine;
 use cpal::traits::{DeviceTrait, HostTrait, StreamTrait};
 
 fn main() {
+    tracing_subscriber::fmt()
+        .with_env_filter(
+            tracing_subscriber::EnvFilter::try_from_default_env()
+                .unwrap_or_else(|_| tracing_subscriber::EnvFilter::new("info")),
+        )
+        .init();
+
     println!("=== passthrough: FFT → Identity → IFFT audio passthrough ===");
     println!("Audio will be captured and played back through the processing pipeline.");
     println!("Press Ctrl+C to stop.\n");
@@ -38,7 +45,8 @@ fn main() {
     let hop_size = 1024;
 
     // Create the engine.
-    let (engine, io) = Engine::new(sample_rate as f32, fft_size, hop_size);
+    let (engine, io) =
+        Engine::new(sample_rate as f32, fft_size, hop_size).expect("Failed to create engine");
     engine
         .set_transform(TransformSpec::Identity)
         .expect("Failed to set transform");

@@ -8,12 +8,12 @@
 
 ## Open Issues Summary
 
-**13 open issues** across 7 phases (15 completed)
+**12 open issues** across 7 phases (16 completed)
 
 | Priority | Count | Issues |
 |----------|-------|--------|
 | :red_circle: Critical | 0 | &mdash; |
-| :yellow_circle: High | 3 | #18, #25, #26 |
+| :yellow_circle: High | 2 | #18, #26 |
 | :green_circle: Medium | 7 | #3, #4, #11, #12, #21, #23, #24 |
 | :large_blue_circle: Low | 3 | #10, #27, #28 |
 
@@ -44,6 +44,7 @@ The following capabilities already exist in the codebase:
 - **Control panel** &mdash; `<ControlPanel />` SolidJS component with source selector (Live/Oscillator/Noise/File), oscillator waveform+frequency controls, noise type selector, WAV file picker via native dialog + seek slider + loop toggle, engine start/stop button, master gain slider
 - **Parametric EQ** &mdash; `ParametricEq` spectral transform with `EqBand` (frequency, gain_db, q, band_type) and `BandType` enum (Peak, LowShelf, HighShelf); smooth bell curves for Peak, sigmoid transitions for shelves; `TransformSpec::ParametricEq` variant with serde support and TypeScript bindings
 - **Transform panel** &mdash; `<TransformPanel />` SolidJS component with transform type selector (Identity, LowPass, HighPass, BandPass, Gain, ParametricEq); per-transform parameter controls (cutoff frequency, band range, gain factor); parametric EQ per-band controls (frequency, gain dB, Q, band type) with add/remove; transform chain mode with add/remove/reorder multiple transforms; all changes immediately sent to engine via `set_transform` Tauri command
+- **Error handling &amp; logging** &mdash; `thiserror`-based error enums (`CoreError`, `AudioIoError`, `EngineError`, `FileIoError`) across all crates; no `String` error types in public APIs; `tracing` instrumentation at engine lifecycle, parameter changes, and error paths; Tauri commands convert `EngineError` to user-friendly strings
 
 ---
 
@@ -175,18 +176,18 @@ The following capabilities already exist in the codebase:
 
 > **Goal:** Production quality, CI, and browser-ready WASM
 >
-> **Effort:** ~2 weeks &bull; **Status:** Not started
+> **Effort:** ~2 weeks &bull; **Status:** In progress
 
 | # | Title | Priority | Effort | Dependencies |
 |---|-------|----------|--------|--------------|
-| #25 | Add error handling (thiserror) and logging (tracing) | :yellow_circle: High | ~2 days | &mdash; |
+| #25 | ~~Add error handling (thiserror) and logging (tracing)~~ | :white_check_mark: Done | ~2 days | &mdash; |
 | #26 | Add GitHub Actions CI pipeline | :yellow_circle: High | ~1 day | &mdash; |
 | #27 | Compile fourier-core to WASM target | :large_blue_circle: Low | ~2 days | #2 |
 | #28 | Add WebAudio integration layer | :large_blue_circle: Low | ~3 days | #27 |
 | #30 | ~~Set up development infrastructure (linting, formatting, testing, CI)~~ | :white_check_mark: Done | ~2 days | &mdash; |
 
 **Key deliverables:**
-- `EngineError` enum via `thiserror`, `tracing` instrumentation
+- ~~`EngineError` enum via `thiserror`, `tracing` instrumentation~~ :white_check_mark:
 - CI: build, test, clippy, fmt on macOS (stable + nightly)
 - WASM build of fourier-core with `wasm-bindgen` exports
 - AudioWorklet integration with example web page
@@ -238,7 +239,7 @@ App shell and engine commands done. Moving to streaming and source commands:
 11. ~~**#17** &mdash; Build spectrum analyzer visualization with WebGL~~ `:white_check_mark:`
 12. ~~**#19** &mdash; Build transport and source control panel~~ `:white_check_mark:`
 13. ~~**#7** &mdash; Add WAV file writing/export~~ `:white_check_mark:`
-14. **#25** &mdash; Add error handling and logging `:yellow_circle:`
+14. ~~**#25** &mdash; Add error handling and logging~~ `:white_check_mark:`
 
 ### PARALLEL TRACKS
 
@@ -246,7 +247,7 @@ These can proceed independently alongside the critical path:
 
 - **DSP track:** ~~#9 (Parametric EQ)~~, #11 (Freeze), #12 (Pitch shift)
 - **File I/O track:** ~~#6~~, ~~#7~~ (WAV read/write) :white_check_mark:
-- **Polish track:** #25, #26 (error handling, CI)
+- **Polish track:** ~~#25~~, #26 (error handling, CI)
 
 ---
 
@@ -273,7 +274,7 @@ These can proceed independently alongside the critical path:
 |-------|-------|-----------|
 | ~~9~~ | ~~#13 Tauri scaffold~~ | ~~Unblocks all frontend work~~ :white_check_mark: |
 | ~~10~~ | ~~#22 Serde serialization~~ | ~~Needed for Tauri IPC~~ :white_check_mark: |
-| 11 | #25 Error handling | Clean up before more code |
+| ~~11~~ | ~~#25 Error handling~~ | ~~Clean up before more code~~ :white_check_mark: |
 | ~~12~~ | ~~#8 Audio file source~~ | ~~Depends on #5, #6~~ :white_check_mark: |
 
 ### Batch 4: Engine Commands (Week 4)
@@ -320,8 +321,8 @@ These can proceed independently alongside the critical path:
 | 4 &mdash; Tauri | 4 | 0 | 0 | 0 | 0 | 4 |
 | 5 &mdash; UI | 5 | 0 | 1 | 1 | 0 | 3 |
 | 6 &mdash; Workflow | 3 | 0 | 0 | 2 | 0 | 1 |
-| 7 &mdash; Polish/Web | 5 | 0 | 2 | 0 | 2 | 1 |
-| **Total** | **28** | **0** | **3** | **7** | **3** | **15** |
+| 7 &mdash; Polish/Web | 5 | 0 | 1 | 0 | 2 | 2 |
+| **Total** | **28** | **0** | **2** | **7** | **3** | **16** |
 
 ---
 
@@ -342,6 +343,7 @@ These can proceed independently alongside the critical path:
 ## Changelog
 
 ### 2026-02-10
+- **Completed #25** (error handling and logging) &mdash; added `thiserror` and `tracing` to workspace dependencies; created `CoreError` enum in `crates/core/src/error.rs` with `FftForwardFailed` and `FftInverseFailed` variants; changed `FftProcessor::forward()` and `inverse()` to return `Result<(), CoreError>` instead of panicking; updated `OverlapAddProcessor::process_frame()` to log FFT errors via `tracing::error!` and gracefully skip failed frames; created `AudioIoError` enum in `crates/audio-io/src/error.rs` with `ConfigQueryFailed`, `UnsupportedSampleFormat`, `StreamBuildFailed`, `StreamPlayFailed` variants wrapping cpal error types; replaced all `Result<_, String>` in `AudioStream::open_input/open_output` with `Result<_, AudioIoError>`; replaced `eprintln!` in audio callbacks with `tracing::error!`; created `EngineError` enum in `crates/engine/src/error.rs` with `ThreadSpawnFailed`, `ChannelSendFailed`, `AudioIo`, `FileIo` variants composing lower-level errors via `#[from]`; changed `Engine::new()` to return `Result<(Self, EngineIo), EngineError>` instead of panicking on thread spawn; changed all `Engine` public methods (`send_param`, `set_transform`, `set_output_gain`, `set_bypass`, `set_source`, `seek`) to return `Result<_, EngineError>` instead of `Result<_, String>`; converted `FileIoError` in `crates/file-io` from manual `Display`/`Error` impls to `thiserror` derive macros; added `tracing` instrumentation: `info!` at engine start/stop, `debug!` at processing thread start, transform/source/gain/bypass changes, shutdown signal, engine drop; Tauri commands convert `EngineError` to user-friendly strings via `engine_err()` helper at the IPC boundary; updated FFI `engine_create()` to return null on failure instead of panicking; updated CLI examples to handle `Result` from `Engine::new()`; all 162 existing tests pass; re-exported `EngineError`, `CoreError`, `AudioIoError` from respective crate roots; begins Phase 7 (Polish &amp; Web Readiness)
 - **Completed #7** (WAV file writing/export) &mdash; added `save_wav(path, buffer, format)` function and `WavFormat` enum (`I16`, `I24`, `F32`) in `crates/file-io/src/wav.rs`; f32 samples clamped to [-1.0, 1.0] before conversion; 16-bit writes via `f64::from(sample) * i16::MAX` with rounding; 24-bit writes via `f64::from(sample) * 8_388_607.0` with rounding; 32-bit float passthrough with clamping; validates non-zero channel count; proper WAV header via hound `WavWriter::create` + `finalize`; exported `save_wav` and `WavFormat` from crate root; 16 new tests: roundtrip tests for all 3 formats in mono and stereo, sine wave roundtrips (i16 and f32), empty buffer, single sample, out-of-range clamping, zero channels error, large buffer (10s stereo), all-formats validity check, `WavFormat` Debug/Eq/Copy trait verification; completes Phase 2 (Audio File I/O) with all 3 issues done
 - **Completed #20** (transform/filter control panel) &mdash; created `<TransformPanel />` SolidJS component in `app/src/TransformPanel.tsx` with reactive state management; transform type selector dropdown supporting Identity (None), LowPass, HighPass, BandPass, Gain, and ParametricEq; per-transform parameter controls: cutoff frequency slider (20&ndash;20,000 Hz) for LowPass/HighPass, low/high frequency sliders for BandPass, gain factor slider (0.0&ndash;2.0x) for Gain; parametric EQ per-band controls with frequency slider (20&ndash;20,000 Hz), gain slider (-24 to +24 dB), Q factor slider (0.1&ndash;10.0), band type selector (Peak/Low Shelf/High Shelf), and add/remove band buttons; transform chain mode with toggle switch enabling multiple transforms in sequence, per-entry type selector and parameters, reorder (up/down) and remove buttons; all parameter changes immediately sent to engine via `setTransform()` Tauri command with `TransformSpec` union; chain mode builds `TransformSpec::Chain` with nested transforms; integrated into `ControlPanel.tsx` below source controls with visual separator; consistent dark theme styling matching existing control panel; extends Phase 5 (UI Components)
 - **Completed #9** (parametric EQ as SpectralTransform) &mdash; implemented `ParametricEq` struct implementing `SpectralTransform` in `crates/core/src/transform.rs`; `EqBand` struct with `frequency: f32`, `gain_db: f32`, `q: f32`, `band_type: BandType` fields; `BandType` enum with `Peak`, `LowShelf`, `HighShelf` variants; Peak bands apply bell-shaped gain curve using `(f/f0 - f0/f) * Q` bandwidth formula; LowShelf/HighShelf use sigmoid-based smooth transitions controlled by Q; multiple bands combine multiplicatively (summed in dB domain); DC bin left untouched; added `TransformSpec::ParametricEq { bands: Vec<EqBand> }` variant in `crates/engine/src/params.rs` with full serde support; wired `build_transform()` in `processor.rs` to construct `ParametricEq` from spec; re-exported `BandType`, `EqBand`, `ParametricEq` from `fourier-core` and `fourier-engine` crate roots; added `BandType`, `EqBand`, and `ParametricEq` TypeScript types in `app/src/bindings.ts`; 15 new unit tests in `fourier-core`: peak boost/cut/bell shape, Q bandwidth control, low shelf boost/cut, high shelf boost/cut, multi-band combination, zero gain unity, empty bands identity, DC untouched, name check; 7 new tests in `fourier-engine`: serde roundtrips for ParametricEq spec (single, empty, in chain), EqBand, BandType variants, ParamMessage with ParametricEq; 2 integration tests: engine processes audio through parametric EQ, rapid transform switching; begins Phase 3 (Enhanced DSP)

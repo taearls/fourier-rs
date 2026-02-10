@@ -13,7 +13,7 @@ use fourier_audio_io::{
     default_input_device, default_output_device, list_input_devices, list_output_devices,
 };
 use fourier_engine::{
-    Engine, NoiseType, SourceSpec, SpectralSnapshot, TransformSpec, WaveformType,
+    Engine, EngineError, NoiseType, SourceSpec, SpectralSnapshot, TransformSpec, WaveformType,
 };
 
 // ---------------------------------------------------------------------------
@@ -94,7 +94,8 @@ fn start_engine(
     // Default hop_size = fft_size / 4 (75% overlap, standard for OLA).
     let hop_size = fft_size / 4;
 
-    let (engine, io) = Engine::new(sample_rate as f32, fft_size, hop_size);
+    let (engine, io) = Engine::new(sample_rate as f32, fft_size, hop_size)
+        .map_err(|e| format!("Failed to start engine: {e}"))?;
 
     // Open audio streams using the default devices.
     let stream_config = StreamConfig {
@@ -149,6 +150,14 @@ fn stop_engine(state: State<'_, AppState>) -> Result<(), String> {
     Ok(())
 }
 
+/// Helper: convert `EngineError` to a user-friendly string for Tauri IPC.
+///
+/// Takes ownership so it can be used directly as `.map_err(engine_err)`.
+#[allow(clippy::needless_pass_by_value)]
+fn engine_err(e: EngineError) -> String {
+    e.to_string()
+}
+
 /// Set the spectral transform chain on the running engine.
 #[tauri::command]
 #[allow(clippy::needless_pass_by_value, clippy::significant_drop_tightening)]
@@ -162,7 +171,7 @@ fn set_transform(state: State<'_, AppState>, spec: TransformSpec) -> Result<(), 
         .as_ref()
         .ok_or_else(|| "Engine is not running".to_string())?;
 
-    engine_state.engine.set_transform(spec)
+    engine_state.engine.set_transform(spec).map_err(engine_err)
 }
 
 /// Set the master output gain (linear, 0.0–1.0+).
@@ -178,7 +187,10 @@ fn set_gain(state: State<'_, AppState>, gain: f32) -> Result<(), String> {
         .as_ref()
         .ok_or_else(|| "Engine is not running".to_string())?;
 
-    engine_state.engine.set_output_gain(gain)
+    engine_state
+        .engine
+        .set_output_gain(gain)
+        .map_err(engine_err)
 }
 
 /// Enable or disable bypass mode (pass audio through without processing).
@@ -194,7 +206,7 @@ fn set_bypass(state: State<'_, AppState>, bypass: bool) -> Result<(), String> {
         .as_ref()
         .ok_or_else(|| "Engine is not running".to_string())?;
 
-    engine_state.engine.set_bypass(bypass)
+    engine_state.engine.set_bypass(bypass).map_err(engine_err)
 }
 
 /// Get the latest spectral snapshot from the engine.
@@ -278,7 +290,10 @@ fn set_source_live_input(state: State<'_, AppState>) -> Result<(), String> {
         .as_ref()
         .ok_or_else(|| "Engine is not running".to_string())?;
 
-    engine_state.engine.set_source(SourceSpec::LiveInput)
+    engine_state
+        .engine
+        .set_source(SourceSpec::LiveInput)
+        .map_err(engine_err)
 }
 
 /// Switch the engine audio source to a generated oscillator waveform.
@@ -304,11 +319,14 @@ fn set_source_oscillator(
         .as_ref()
         .ok_or_else(|| "Engine is not running".to_string())?;
 
-    engine_state.engine.set_source(SourceSpec::Oscillator {
-        waveform,
-        frequency,
-        amplitude: 1.0,
-    })
+    engine_state
+        .engine
+        .set_source(SourceSpec::Oscillator {
+            waveform,
+            frequency,
+            amplitude: 1.0,
+        })
+        .map_err(engine_err)
 }
 
 /// Switch the engine audio source to a noise generator.
@@ -326,10 +344,13 @@ fn set_source_noise(state: State<'_, AppState>, noise_type: String) -> Result<()
         .as_ref()
         .ok_or_else(|| "Engine is not running".to_string())?;
 
-    engine_state.engine.set_source(SourceSpec::Noise {
-        noise_type,
-        amplitude: 1.0,
-    })
+    engine_state
+        .engine
+        .set_source(SourceSpec::Noise {
+            noise_type,
+            amplitude: 1.0,
+        })
+        .map_err(engine_err)
 }
 
 /// Switch the engine audio source to a loaded WAV file.
@@ -353,10 +374,13 @@ fn set_source_file(state: State<'_, AppState>, path: String, looping: bool) -> R
         .as_ref()
         .ok_or_else(|| "Engine is not running".to_string())?;
 
-    engine_state.engine.set_source(SourceSpec::AudioBuffer {
-        buffer: Some(buffer),
-        looping,
-    })
+    engine_state
+        .engine
+        .set_source(SourceSpec::AudioBuffer {
+            buffer: Some(buffer),
+            looping,
+        })
+        .map_err(engine_err)
 }
 
 /// Seek to a normalized position in the current audio source.
@@ -375,7 +399,7 @@ fn seek_source(state: State<'_, AppState>, position: f32) -> Result<(), String> 
         .as_ref()
         .ok_or_else(|| "Engine is not running".to_string())?;
 
-    engine_state.engine.seek(position)
+    engine_state.engine.seek(position).map_err(engine_err)
 }
 
 // ---------------------------------------------------------------------------
@@ -387,6 +411,13 @@ fn seek_source(state: State<'_, AppState>, position: f32) -> Result<(), String> 
 /// Called from `main.rs` to configure the Tauri application builder.
 #[allow(clippy::expect_used)]
 pub fn run() {
+    tracing_subscriber::fmt()
+        .with_env_filter(
+            tracing_subscriber::EnvFilter::try_from_default_env()
+                .unwrap_or_else(|_| tracing_subscriber::EnvFilter::new("info")),
+        )
+        .init();
+
     tauri::Builder::default()
         .plugin(tauri_plugin_dialog::init())
         .manage(AppState::default())

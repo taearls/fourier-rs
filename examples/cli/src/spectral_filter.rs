@@ -14,6 +14,13 @@ use fourier_engine::processor::Engine;
 use cpal::traits::{DeviceTrait, HostTrait, StreamTrait};
 
 fn main() {
+    tracing_subscriber::fmt()
+        .with_env_filter(
+            tracing_subscriber::EnvFilter::try_from_default_env()
+                .unwrap_or_else(|_| tracing_subscriber::EnvFilter::new("info")),
+        )
+        .init();
+
     let args: Vec<String> = std::env::args().collect();
 
     let transform = parse_transform(&args);
@@ -41,7 +48,8 @@ fn main() {
     let fft_size = 2048;
     let hop_size = 1024;
 
-    let (engine, io) = Engine::new(sample_rate as f32, fft_size, hop_size);
+    let (engine, io) =
+        Engine::new(sample_rate as f32, fft_size, hop_size).expect("Failed to create engine");
     engine
         .set_transform(transform)
         .expect("Failed to set transform");

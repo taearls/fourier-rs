@@ -184,9 +184,15 @@ impl OverlapAddProcessor {
         // Apply analysis window.
         self.window.apply(&mut self.windowed_frame);
 
-        // Forward FFT.
-        self.fft
-            .forward(&mut self.windowed_frame, &mut self.spectrum);
+        // Forward FFT — buffer sizes are guaranteed correct by construction,
+        // so failure here indicates a bug rather than a user error.
+        if let Err(e) = self
+            .fft
+            .forward(&mut self.windowed_frame, &mut self.spectrum)
+        {
+            tracing::error!("Forward FFT failed in OLA processing: {e}");
+            return;
+        }
 
         // Apply user-defined spectral transform.
         transform.process(
@@ -199,7 +205,10 @@ impl OverlapAddProcessor {
         self.latest_spectrum.copy_from_slice(&self.spectrum);
 
         // Inverse FFT.
-        self.fft.inverse(&mut self.spectrum, &mut self.ifft_output);
+        if let Err(e) = self.fft.inverse(&mut self.spectrum, &mut self.ifft_output) {
+            tracing::error!("Inverse FFT failed in OLA processing: {e}");
+            return;
+        }
 
         // Overlap-add into output buffer.
         let out_len = self.output_buf.len();
