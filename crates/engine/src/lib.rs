@@ -10,7 +10,7 @@ pub mod params;
 pub mod processor;
 pub mod source;
 
-pub use fourier_core::WaveformType;
+pub use fourier_core::{BandType, EqBand, WaveformType};
 pub use params::{EngineParams, NoiseType, ParamMessage, Partial, SourceSpec, TransformSpec};
 pub use processor::{Engine, SpectralSnapshot};
 pub use source::{AudioBufferSource, AudioSource};

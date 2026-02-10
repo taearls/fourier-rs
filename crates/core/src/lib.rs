@@ -15,5 +15,5 @@ pub use fft::FftProcessor;
 pub use oscillator::{Oscillator, WaveformType};
 pub use overlap_add::OverlapAddProcessor;
 pub use spectral::{detect_peaks, SpectralPeak};
-pub use transform::{FrequencyBin, SpectralTransform};
+pub use transform::{BandType, EqBand, FrequencyBin, ParametricEq, SpectralTransform};
 pub use window::{WindowFunction, WindowType};
