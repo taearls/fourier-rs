@@ -151,6 +151,9 @@ fn stop_engine(state: State<'_, AppState>) -> Result<(), String> {
 }
 
 /// Helper: convert `EngineError` to a user-friendly string for Tauri IPC.
+///
+/// Takes ownership so it can be used directly as `.map_err(engine_err)`.
+#[allow(clippy::needless_pass_by_value)]
 fn engine_err(e: EngineError) -> String {
     e.to_string()
 }
