@@ -12,6 +12,7 @@ import {
   type WaveformType,
   type NoiseType,
 } from "./bindings";
+import TransformPanel from "./TransformPanel";
 
 // ---------------------------------------------------------------------------
 // Types
@@ -354,6 +355,12 @@ const ControlPanel: Component = () => {
           </div>
         </section>
       </Show>
+
+      {/* Separator */}
+      <div class="cp-separator" />
+
+      {/* Transform controls */}
+      <TransformPanel running={running()} />
     </div>
   );
 };

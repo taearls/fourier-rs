@@ -332,6 +332,183 @@ body {
   margin-right: 4px;
 }
 
+/* Separator */
+
+.cp-separator {
+  height: 1px;
+  background: var(--border);
+}
+
+/* ---------- Transform panel ---------- */
+
+.transform-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.tp-chain-toggle {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.tp-toggle-label {
+  font-size: 0.7rem;
+  color: rgba(255, 255, 255, 0.5);
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  cursor: pointer;
+}
+
+.tp-toggle-label input[type="checkbox"] {
+  accent-color: var(--accent);
+}
+
+.tp-value {
+  font-size: 0.7rem;
+  color: rgba(255, 255, 255, 0.5);
+  min-width: 52px;
+  text-align: right;
+  flex-shrink: 0;
+}
+
+/* EQ bands */
+
+.tp-eq-bands {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.tp-eq-band {
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  padding: 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.tp-eq-band-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.tp-eq-band-label {
+  font-size: 0.65rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: rgba(255, 255, 255, 0.35);
+}
+
+.tp-add-band {
+  align-self: flex-start;
+}
+
+/* Small buttons (used in EQ band remove, chain reorder) */
+
+.tp-btn-sm {
+  font-family: inherit;
+  font-size: 0.7rem;
+  width: 22px;
+  height: 22px;
+  padding: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid var(--border);
+  border-radius: 3px;
+  background: transparent;
+  color: rgba(255, 255, 255, 0.4);
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.tp-btn-sm:hover:not(:disabled) {
+  border-color: var(--accent);
+  color: var(--fg);
+}
+
+.tp-btn-sm:disabled {
+  opacity: 0.25;
+  cursor: default;
+}
+
+.tp-btn-remove:hover:not(:disabled) {
+  border-color: #dc2626;
+  color: #fca5a5;
+}
+
+/* Chain mode */
+
+.tp-chain {
+  gap: 8px;
+}
+
+.tp-chain-entry {
+  background: rgba(255, 255, 255, 0.02);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  padding: 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.tp-chain-entry-header {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.tp-chain-index {
+  font-size: 0.65rem;
+  font-weight: 700;
+  color: var(--accent);
+  min-width: 14px;
+  text-align: center;
+}
+
+.tp-chain-select {
+  flex: 1;
+  min-width: 0;
+  font-family: inherit;
+  font-size: 0.7rem;
+  padding: 3px 5px;
+  border: 1px solid var(--border);
+  border-radius: 3px;
+  background: var(--bg);
+  color: var(--fg);
+  cursor: pointer;
+}
+
+.tp-chain-select:focus {
+  outline: none;
+  border-color: var(--accent);
+}
+
+.tp-chain-actions {
+  display: flex;
+  gap: 2px;
+  flex-shrink: 0;
+}
+
+.tp-chain-entry-params {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding-left: 20px;
+}
+
+.tp-add-entry {
+  align-self: flex-start;
+}
+
 /* Range input styling */
 
 input[type="range"] {
