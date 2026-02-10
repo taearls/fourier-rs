@@ -8,12 +8,12 @@
 
 ## Open Issues Summary
 
-**15 open issues** across 7 phases (13 completed)
+**14 open issues** across 7 phases (14 completed)
 
 | Priority | Count | Issues |
 |----------|-------|--------|
 | :red_circle: Critical | 0 | &mdash; |
-| :yellow_circle: High | 5 | #7, #18, #20, #25, #26 |
+| :yellow_circle: High | 4 | #7, #18, #25, #26 |
 | :green_circle: Medium | 7 | #3, #4, #11, #12, #21, #23, #24 |
 | :large_blue_circle: Low | 3 | #10, #27, #28 |
 
@@ -42,6 +42,7 @@ The following capabilities already exist in the codebase:
 - **Spectrum analyzer** &mdash; `<SpectrumAnalyzer />` SolidJS component with WebGL rendering, log frequency axis (20Hz&ndash;20kHz), dB magnitude axis (-90&ndash;0 dB), line/filled/bars render modes, peak hold with decay, responsive resize, graceful WebGL fallback
 - **Control panel** &mdash; `<ControlPanel />` SolidJS component with source selector (Live/Oscillator/Noise/File), oscillator waveform+frequency controls, noise type selector, WAV file picker via native dialog + seek slider + loop toggle, engine start/stop button, master gain slider
 - **Parametric EQ** &mdash; `ParametricEq` spectral transform with `EqBand` (frequency, gain_db, q, band_type) and `BandType` enum (Peak, LowShelf, HighShelf); smooth bell curves for Peak, sigmoid transitions for shelves; `TransformSpec::ParametricEq` variant with serde support and TypeScript bindings
+- **Transform panel** &mdash; `<TransformPanel />` SolidJS component with transform type selector (Identity, LowPass, HighPass, BandPass, Gain, ParametricEq); per-transform parameter controls (cutoff frequency, band range, gain factor); parametric EQ per-band controls (frequency, gain dB, Q, band type) with add/remove; transform chain mode with add/remove/reorder multiple transforms; all changes immediately sent to engine via `set_transform` Tauri command
 
 ---
 
@@ -138,14 +139,14 @@ The following capabilities already exist in the codebase:
 | #17 | ~~Build spectrum analyzer visualization with WebGL~~ | :white_check_mark: Done | ~3 days | ~~#15~~ |
 | #18 | Build waveform/oscilloscope display | :yellow_circle: High | ~2 days | #14, #15 |
 | #19 | ~~Build transport and source control panel~~ | :white_check_mark: Done | ~2 days | ~~#14~~, ~~#16~~ |
-| #20 | Build transform/filter control panel | :yellow_circle: High | ~2 days | ~~#9~~, #14 |
+| #20 | ~~Build transform/filter control panel~~ | :white_check_mark: Done | ~2 days | ~~#9~~, ~~#14~~ |
 | #21 | Build peak frequency and note detection display | :green_circle: Medium | ~1 day | #15 |
 
 **Key deliverables:**
 - ~~`<SpectrumAnalyzer />` &mdash; WebGL, log freq axis, dB magnitude, peak markers~~ :white_check_mark:
 - `<WaveformDisplay />` &mdash; WebGL oscilloscope with zero-crossing trigger
 - ~~`<ControlPanel />` &mdash; source selector, oscillator/noise/file controls, gain~~ :white_check_mark:
-- `<TransformPanel />` &mdash; EQ bands, pitch shift, freeze toggle, chain management
+- ~~`<TransformPanel />` &mdash; EQ bands, pitch shift, freeze toggle, chain management~~ :white_check_mark:
 - `<TunerDisplay />` &mdash; peak frequency, note name, cents deviation
 
 ---
@@ -287,7 +288,7 @@ These can proceed independently alongside the critical path:
 | ~~16~~ | ~~#17 Spectrum analyzer (WebGL)~~ | ~~Flagship visualization~~ :white_check_mark: |
 | ~~17~~ | ~~#19 Transport/source control panel~~ | ~~Core user interaction~~ :white_check_mark: |
 | 18 | #18 Waveform display | Second visualization |
-| 19 | #20 Transform control panel | Effect parameter UI |
+| ~~19~~ | ~~#20 Transform control panel~~ | ~~Effect parameter UI~~ :white_check_mark: |
 | 20 | #21 Note detection display | Tuner feature |
 
 ### Batch 6: Workflow + DSP Extras (Week 7)
@@ -316,10 +317,10 @@ These can proceed independently alongside the critical path:
 | 2 &mdash; File I/O | 3 | 0 | 1 | 0 | 0 | 2 |
 | 3 &mdash; DSP | 4 | 0 | 0 | 2 | 1 | 1 |
 | 4 &mdash; Tauri | 4 | 0 | 0 | 0 | 0 | 4 |
-| 5 &mdash; UI | 5 | 0 | 2 | 1 | 0 | 2 |
+| 5 &mdash; UI | 5 | 0 | 1 | 1 | 0 | 3 |
 | 6 &mdash; Workflow | 3 | 0 | 0 | 2 | 0 | 1 |
 | 7 &mdash; Polish/Web | 5 | 0 | 2 | 0 | 2 | 1 |
-| **Total** | **28** | **0** | **5** | **7** | **3** | **13** |
+| **Total** | **28** | **0** | **4** | **7** | **3** | **14** |
 
 ---
 
@@ -340,6 +341,7 @@ These can proceed independently alongside the critical path:
 ## Changelog
 
 ### 2026-02-10
+- **Completed #20** (transform/filter control panel) &mdash; created `<TransformPanel />` SolidJS component in `app/src/TransformPanel.tsx` with reactive state management; transform type selector dropdown supporting Identity (None), LowPass, HighPass, BandPass, Gain, and ParametricEq; per-transform parameter controls: cutoff frequency slider (20&ndash;20,000 Hz) for LowPass/HighPass, low/high frequency sliders for BandPass, gain factor slider (0.0&ndash;2.0x) for Gain; parametric EQ per-band controls with frequency slider (20&ndash;20,000 Hz), gain slider (-24 to +24 dB), Q factor slider (0.1&ndash;10.0), band type selector (Peak/Low Shelf/High Shelf), and add/remove band buttons; transform chain mode with toggle switch enabling multiple transforms in sequence, per-entry type selector and parameters, reorder (up/down) and remove buttons; all parameter changes immediately sent to engine via `setTransform()` Tauri command with `TransformSpec` union; chain mode builds `TransformSpec::Chain` with nested transforms; integrated into `ControlPanel.tsx` below source controls with visual separator; consistent dark theme styling matching existing control panel; extends Phase 5 (UI Components)
 - **Completed #9** (parametric EQ as SpectralTransform) &mdash; implemented `ParametricEq` struct implementing `SpectralTransform` in `crates/core/src/transform.rs`; `EqBand` struct with `frequency: f32`, `gain_db: f32`, `q: f32`, `band_type: BandType` fields; `BandType` enum with `Peak`, `LowShelf`, `HighShelf` variants; Peak bands apply bell-shaped gain curve using `(f/f0 - f0/f) * Q` bandwidth formula; LowShelf/HighShelf use sigmoid-based smooth transitions controlled by Q; multiple bands combine multiplicatively (summed in dB domain); DC bin left untouched; added `TransformSpec::ParametricEq { bands: Vec<EqBand> }` variant in `crates/engine/src/params.rs` with full serde support; wired `build_transform()` in `processor.rs` to construct `ParametricEq` from spec; re-exported `BandType`, `EqBand`, `ParametricEq` from `fourier-core` and `fourier-engine` crate roots; added `BandType`, `EqBand`, and `ParametricEq` TypeScript types in `app/src/bindings.ts`; 15 new unit tests in `fourier-core`: peak boost/cut/bell shape, Q bandwidth control, low shelf boost/cut, high shelf boost/cut, multi-band combination, zero gain unity, empty bands identity, DC untouched, name check; 7 new tests in `fourier-engine`: serde roundtrips for ParametricEq spec (single, empty, in chain), EqBand, BandType variants, ParamMessage with ParametricEq; 2 integration tests: engine processes audio through parametric EQ, rapid transform switching; begins Phase 3 (Enhanced DSP)
 
 ### 2026-02-08
