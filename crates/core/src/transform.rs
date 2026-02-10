@@ -192,13 +192,9 @@ impl ParametricEq {
     }
 
     /// Compute the linear gain for a single band at the given frequency.
-    fn band_gain(band: &EqBand, freq_hz: f32) -> f32 {
-        if band.frequency <= 0.0 || band.q <= 0.0 {
-            return 1.0;
-        }
-
-        let gain_linear = 10.0_f32.powf(band.gain_db / 20.0);
-
+    ///
+    /// `gain_linear` is the pre-computed `10^(gain_db/20)` for this band.
+    fn band_gain(band: &EqBand, gain_linear: f32, freq_hz: f32) -> f32 {
         match band.band_type {
             BandType::Peak => {
                 // Bell curve: gain = 1 + (G - 1) / (1 + (f/f0 - f0/f)^2 * Q^2)
@@ -238,17 +234,33 @@ impl ParametricEq {
 
 impl SpectralTransform for ParametricEq {
     fn process(&mut self, spectrum: &mut [Complex<f32>], sample_rate: f32, fft_size: usize) {
+        // Pre-compute linear gains once per band to avoid redundant powf() per bin.
+        let band_gains: Vec<f32> = self
+            .bands
+            .iter()
+            .map(|band| {
+                if band.frequency <= 0.0 || band.q <= 0.0 {
+                    1.0
+                } else {
+                    10.0_f32.powf(band.gain_db / 20.0)
+                }
+            })
+            .collect();
+
         let bin_width = sample_rate / fft_size as f32;
         for (i, bin) in spectrum.iter_mut().enumerate() {
-            let freq = i as f32 * bin_width;
             // Skip DC bin (freq = 0).
             if i == 0 {
                 continue;
             }
+            let freq = i as f32 * bin_width;
             // Multiply gains from all bands (sum in dB domain).
             let mut total_gain = 1.0_f32;
-            for band in &self.bands {
-                total_gain *= Self::band_gain(band, freq);
+            for (band, &gain_linear) in self.bands.iter().zip(&band_gains) {
+                if (gain_linear - 1.0).abs() < f32::EPSILON {
+                    continue;
+                }
+                total_gain *= Self::band_gain(band, gain_linear, freq);
             }
             *bin *= total_gain;
         }
