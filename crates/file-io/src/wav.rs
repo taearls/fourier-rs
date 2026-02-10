@@ -1,11 +1,22 @@
-//! WAV file loading using the `hound` crate.
+//! WAV file loading and saving using the `hound` crate.
 
 use std::path::Path;
 
-use hound::{SampleFormat, WavReader};
+use hound::{SampleFormat, WavReader, WavSpec, WavWriter};
 
 use crate::error::FileIoError;
 use crate::AudioBuffer;
+
+/// Output sample format for WAV file writing.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum WavFormat {
+    /// 16-bit signed integer PCM.
+    I16,
+    /// 24-bit signed integer PCM.
+    I24,
+    /// 32-bit IEEE float.
+    F32,
+}
 
 /// Load a WAV file into an [`AudioBuffer`].
 ///
@@ -42,6 +53,103 @@ pub fn load_wav(path: &Path) -> Result<AudioBuffer, FileIoError> {
         sample_rate,
         channels,
     })
+}
+
+/// Save an [`AudioBuffer`] to a WAV file.
+///
+/// Converts the internal f32 samples to the specified [`WavFormat`].
+/// Samples are clamped to `[-1.0, 1.0]` before conversion.
+///
+/// # Errors
+///
+/// Returns [`FileIoError::Io`] if the file cannot be created or written, or
+/// [`FileIoError::InvalidFormat`] if the buffer has zero channels.
+pub fn save_wav(path: &Path, buffer: &AudioBuffer, format: WavFormat) -> Result<(), FileIoError> {
+    if buffer.channels == 0 {
+        return Err(FileIoError::InvalidFormat(
+            "cannot save buffer with 0 channels".into(),
+        ));
+    }
+
+    let spec = WavSpec {
+        channels: buffer.channels,
+        sample_rate: buffer.sample_rate,
+        bits_per_sample: match format {
+            WavFormat::I16 => 16,
+            WavFormat::I24 => 24,
+            WavFormat::F32 => 32,
+        },
+        sample_format: match format {
+            WavFormat::I16 | WavFormat::I24 => SampleFormat::Int,
+            WavFormat::F32 => SampleFormat::Float,
+        },
+    };
+
+    let mut writer = WavWriter::create(path, spec).map_err(|e| match e {
+        hound::Error::IoError(io_err) => FileIoError::Io(io_err),
+        other => FileIoError::InvalidFormat(other.to_string()),
+    })?;
+
+    match format {
+        WavFormat::I16 => write_i16_samples(&mut writer, &buffer.samples),
+        WavFormat::I24 => write_i24_samples(&mut writer, &buffer.samples),
+        WavFormat::F32 => write_f32_samples(&mut writer, &buffer.samples),
+    }?;
+
+    writer.finalize().map_err(|e| match e {
+        hound::Error::IoError(io_err) => FileIoError::Io(io_err),
+        other => FileIoError::InvalidFormat(other.to_string()),
+    })?;
+
+    Ok(())
+}
+
+/// Write samples as 16-bit signed integers.
+fn write_i16_samples(
+    writer: &mut WavWriter<std::io::BufWriter<std::fs::File>>,
+    samples: &[f32],
+) -> Result<(), FileIoError> {
+    for &sample in samples {
+        let clamped = sample.clamp(-1.0, 1.0);
+        // Scale to i16 range. Use f64 for precision, then round.
+        #[allow(clippy::cast_possible_truncation)]
+        let quantized = (f64::from(clamped) * f64::from(i16::MAX)).round() as i16;
+        writer
+            .write_sample(quantized)
+            .map_err(|e| FileIoError::InvalidFormat(e.to_string()))?;
+    }
+    Ok(())
+}
+
+/// Write samples as 24-bit signed integers (stored as i32).
+fn write_i24_samples(
+    writer: &mut WavWriter<std::io::BufWriter<std::fs::File>>,
+    samples: &[f32],
+) -> Result<(), FileIoError> {
+    let max_24: f64 = f64::from(1_i32 << 23) - 1.0; // 8_388_607
+    for &sample in samples {
+        let clamped = sample.clamp(-1.0, 1.0);
+        #[allow(clippy::cast_possible_truncation)]
+        let quantized = (f64::from(clamped) * max_24).round() as i32;
+        writer
+            .write_sample(quantized)
+            .map_err(|e| FileIoError::InvalidFormat(e.to_string()))?;
+    }
+    Ok(())
+}
+
+/// Write samples as 32-bit IEEE floats (passthrough with clamping).
+fn write_f32_samples(
+    writer: &mut WavWriter<std::io::BufWriter<std::fs::File>>,
+    samples: &[f32],
+) -> Result<(), FileIoError> {
+    for &sample in samples {
+        let clamped = sample.clamp(-1.0, 1.0);
+        writer
+            .write_sample(clamped)
+            .map_err(|e| FileIoError::InvalidFormat(e.to_string()))?;
+    }
+    Ok(())
 }
 
 /// Read integer samples (16-bit or 24-bit) and normalize to `[-1.0, 1.0]`.
@@ -100,7 +208,7 @@ fn read_float_samples(
 #[allow(clippy::unwrap_used, clippy::expect_used)]
 mod tests {
     use super::*;
-    use hound::{WavSpec, WavWriter};
+    use hound::WavSpec;
     use std::path::PathBuf;
     use std::sync::atomic::{AtomicU64, Ordering};
 
@@ -506,5 +614,377 @@ mod tests {
         let io_err = std::io::Error::new(std::io::ErrorKind::NotFound, "missing");
         let file_err: FileIoError = io_err.into();
         assert!(matches!(file_err, FileIoError::Io(_)));
+    }
+
+    // ---- save_wav tests ----
+
+    /// Helper: get a unique temp path for save tests.
+    fn save_test_path(name: &str) -> PathBuf {
+        let dir = std::env::temp_dir().join("fourier-file-io-tests");
+        std::fs::create_dir_all(&dir).unwrap();
+        let id = TEST_COUNTER.fetch_add(1, Ordering::Relaxed);
+        dir.join(format!("save_{name}_{id}.wav"))
+    }
+
+    // ---- Roundtrip tests: generate → save → load → verify ----
+
+    #[test]
+    fn roundtrip_i16_mono() {
+        let original = AudioBuffer {
+            samples: vec![0.0, 0.5, -0.5, 1.0, -1.0],
+            sample_rate: 44100,
+            channels: 1,
+        };
+        let path = save_test_path("i16_mono");
+        save_wav(&path, &original, WavFormat::I16).unwrap();
+
+        let loaded = load_wav(&path).unwrap();
+        assert_eq!(loaded.channels, 1);
+        assert_eq!(loaded.sample_rate, 44100);
+        assert_eq!(loaded.samples.len(), 5);
+        // 16-bit quantization allows ~1/32768 error
+        for (orig, loaded_s) in original.samples.iter().zip(&loaded.samples) {
+            assert!(
+                (orig - loaded_s).abs() < 0.001,
+                "expected ~{orig}, got {loaded_s}"
+            );
+        }
+
+        std::fs::remove_file(&path).ok();
+    }
+
+    #[test]
+    fn roundtrip_i16_stereo() {
+        let original = AudioBuffer {
+            samples: vec![0.25, -0.25, 0.75, -0.75],
+            sample_rate: 48000,
+            channels: 2,
+        };
+        let path = save_test_path("i16_stereo");
+        save_wav(&path, &original, WavFormat::I16).unwrap();
+
+        let loaded = load_wav(&path).unwrap();
+        assert_eq!(loaded.channels, 2);
+        assert_eq!(loaded.sample_rate, 48000);
+        assert_eq!(loaded.num_frames(), 2);
+        for (orig, loaded_s) in original.samples.iter().zip(&loaded.samples) {
+            assert!(
+                (orig - loaded_s).abs() < 0.001,
+                "expected ~{orig}, got {loaded_s}"
+            );
+        }
+
+        std::fs::remove_file(&path).ok();
+    }
+
+    #[test]
+    fn roundtrip_i24_mono() {
+        let original = AudioBuffer {
+            samples: vec![0.0, 0.5, -0.5, 1.0, -1.0],
+            sample_rate: 44100,
+            channels: 1,
+        };
+        let path = save_test_path("i24_mono");
+        save_wav(&path, &original, WavFormat::I24).unwrap();
+
+        let loaded = load_wav(&path).unwrap();
+        assert_eq!(loaded.channels, 1);
+        assert_eq!(loaded.sample_rate, 44100);
+        assert_eq!(loaded.samples.len(), 5);
+        // 24-bit quantization: ~1/8388607 error
+        for (orig, loaded_s) in original.samples.iter().zip(&loaded.samples) {
+            assert!(
+                (orig - loaded_s).abs() < 0.0001,
+                "expected ~{orig}, got {loaded_s}"
+            );
+        }
+
+        std::fs::remove_file(&path).ok();
+    }
+
+    #[test]
+    fn roundtrip_i24_stereo() {
+        let original = AudioBuffer {
+            samples: vec![0.1, -0.9, 0.33, -0.66],
+            sample_rate: 96000,
+            channels: 2,
+        };
+        let path = save_test_path("i24_stereo");
+        save_wav(&path, &original, WavFormat::I24).unwrap();
+
+        let loaded = load_wav(&path).unwrap();
+        assert_eq!(loaded.channels, 2);
+        assert_eq!(loaded.sample_rate, 96000);
+        for (orig, loaded_s) in original.samples.iter().zip(&loaded.samples) {
+            assert!(
+                (orig - loaded_s).abs() < 0.0001,
+                "expected ~{orig}, got {loaded_s}"
+            );
+        }
+
+        std::fs::remove_file(&path).ok();
+    }
+
+    #[test]
+    fn roundtrip_f32_mono() {
+        let original = AudioBuffer {
+            samples: vec![0.0, 0.123_456_79, -0.987_654_3, 1.0, -1.0],
+            sample_rate: 44100,
+            channels: 1,
+        };
+        let path = save_test_path("f32_mono");
+        save_wav(&path, &original, WavFormat::F32).unwrap();
+
+        let loaded = load_wav(&path).unwrap();
+        assert_eq!(loaded.channels, 1);
+        assert_eq!(loaded.sample_rate, 44100);
+        assert_eq!(loaded.samples.len(), 5);
+        // f32 passthrough should be exact
+        for (orig, loaded_s) in original.samples.iter().zip(&loaded.samples) {
+            assert!(
+                (orig - loaded_s).abs() < 1e-6,
+                "expected {orig}, got {loaded_s}"
+            );
+        }
+
+        std::fs::remove_file(&path).ok();
+    }
+
+    #[test]
+    fn roundtrip_f32_stereo() {
+        let original = AudioBuffer {
+            samples: vec![0.5, -0.5, 0.0, 1.0],
+            sample_rate: 48000,
+            channels: 2,
+        };
+        let path = save_test_path("f32_stereo");
+        save_wav(&path, &original, WavFormat::F32).unwrap();
+
+        let loaded = load_wav(&path).unwrap();
+        assert_eq!(loaded.channels, 2);
+        assert_eq!(loaded.sample_rate, 48000);
+        for (orig, loaded_s) in original.samples.iter().zip(&loaded.samples) {
+            assert!(
+                (orig - loaded_s).abs() < 1e-6,
+                "expected {orig}, got {loaded_s}"
+            );
+        }
+
+        std::fs::remove_file(&path).ok();
+    }
+
+    // ---- Roundtrip with sine wave ----
+
+    #[test]
+    fn roundtrip_sine_wave_i16() {
+        let sample_rate = 44100;
+        let freq = 440.0_f64;
+        let num_samples = 441; // 10ms
+        let samples: Vec<f32> = (0..num_samples)
+            .map(|i| {
+                let t = i as f64 / f64::from(sample_rate);
+                #[allow(clippy::cast_possible_truncation)]
+                let s = (2.0 * std::f64::consts::PI * freq * t).sin() as f32;
+                s
+            })
+            .collect();
+
+        let original = AudioBuffer {
+            samples,
+            sample_rate: 44100,
+            channels: 1,
+        };
+        let path = save_test_path("sine_i16");
+        save_wav(&path, &original, WavFormat::I16).unwrap();
+
+        let loaded = load_wav(&path).unwrap();
+        assert_eq!(loaded.samples.len(), num_samples);
+        for (orig, loaded_s) in original.samples.iter().zip(&loaded.samples) {
+            assert!(
+                (orig - loaded_s).abs() < 0.001,
+                "sine roundtrip mismatch: expected ~{orig}, got {loaded_s}"
+            );
+        }
+
+        std::fs::remove_file(&path).ok();
+    }
+
+    #[test]
+    fn roundtrip_sine_wave_f32() {
+        let sample_rate = 44100;
+        let freq = 440.0_f64;
+        let num_samples = 441;
+        let samples: Vec<f32> = (0..num_samples)
+            .map(|i| {
+                let t = i as f64 / f64::from(sample_rate);
+                #[allow(clippy::cast_possible_truncation)]
+                let s = (2.0 * std::f64::consts::PI * freq * t).sin() as f32;
+                s
+            })
+            .collect();
+
+        let original = AudioBuffer {
+            samples,
+            sample_rate: 44100,
+            channels: 1,
+        };
+        let path = save_test_path("sine_f32");
+        save_wav(&path, &original, WavFormat::F32).unwrap();
+
+        let loaded = load_wav(&path).unwrap();
+        assert_eq!(loaded.samples.len(), num_samples);
+        // f32 should be exact
+        for (orig, loaded_s) in original.samples.iter().zip(&loaded.samples) {
+            assert!(
+                (orig - loaded_s).abs() < 1e-6,
+                "sine roundtrip mismatch: expected {orig}, got {loaded_s}"
+            );
+        }
+
+        std::fs::remove_file(&path).ok();
+    }
+
+    // ---- Edge case tests ----
+
+    #[test]
+    fn save_empty_buffer() {
+        let buffer = AudioBuffer {
+            samples: vec![],
+            sample_rate: 44100,
+            channels: 1,
+        };
+        let path = save_test_path("empty");
+        save_wav(&path, &buffer, WavFormat::I16).unwrap();
+
+        let loaded = load_wav(&path).unwrap();
+        assert!(loaded.samples.is_empty());
+        assert_eq!(loaded.sample_rate, 44100);
+        assert_eq!(loaded.channels, 1);
+
+        std::fs::remove_file(&path).ok();
+    }
+
+    #[test]
+    fn save_single_sample() {
+        let buffer = AudioBuffer {
+            samples: vec![0.42],
+            sample_rate: 44100,
+            channels: 1,
+        };
+        let path = save_test_path("single");
+        save_wav(&path, &buffer, WavFormat::F32).unwrap();
+
+        let loaded = load_wav(&path).unwrap();
+        assert_eq!(loaded.samples.len(), 1);
+        assert!((loaded.samples[0] - 0.42).abs() < 1e-6);
+
+        std::fs::remove_file(&path).ok();
+    }
+
+    #[test]
+    fn save_clamps_out_of_range() {
+        let buffer = AudioBuffer {
+            samples: vec![2.0, -3.0, 1.5, -1.5],
+            sample_rate: 44100,
+            channels: 1,
+        };
+        let path = save_test_path("clamp");
+        save_wav(&path, &buffer, WavFormat::F32).unwrap();
+
+        let loaded = load_wav(&path).unwrap();
+        assert!((loaded.samples[0] - 1.0).abs() < 1e-6);
+        assert!((loaded.samples[1] + 1.0).abs() < 1e-6);
+        assert!((loaded.samples[2] - 1.0).abs() < 1e-6);
+        assert!((loaded.samples[3] + 1.0).abs() < 1e-6);
+
+        std::fs::remove_file(&path).ok();
+    }
+
+    #[test]
+    fn save_zero_channels_errors() {
+        let buffer = AudioBuffer {
+            samples: vec![0.0],
+            sample_rate: 44100,
+            channels: 0,
+        };
+        let path = save_test_path("zero_ch");
+        let result = save_wav(&path, &buffer, WavFormat::I16);
+        assert!(result.is_err());
+        let err = result.unwrap_err();
+        assert!(matches!(err, FileIoError::InvalidFormat(_)));
+        assert!(err.to_string().contains("0 channels"));
+    }
+
+    #[test]
+    fn save_large_buffer() {
+        // 10 seconds of stereo audio at 44100 Hz
+        let num_samples = 44100 * 2 * 10; // 882,000 interleaved samples
+        let samples: Vec<f32> = (0..num_samples)
+            .map(|i| {
+                let t = i as f64 / 44100.0;
+                #[allow(clippy::cast_possible_truncation)]
+                let s = (2.0 * std::f64::consts::PI * 440.0 * t).sin() as f32;
+                s
+            })
+            .collect();
+
+        let buffer = AudioBuffer {
+            samples,
+            sample_rate: 44100,
+            channels: 2,
+        };
+        let path = save_test_path("large");
+        save_wav(&path, &buffer, WavFormat::I16).unwrap();
+
+        let loaded = load_wav(&path).unwrap();
+        assert_eq!(loaded.channels, 2);
+        assert_eq!(loaded.sample_rate, 44100);
+        assert_eq!(loaded.samples.len(), num_samples);
+        assert_eq!(loaded.num_frames(), 44100 * 10);
+
+        std::fs::remove_file(&path).ok();
+    }
+
+    // ---- save_wav writes all three formats ----
+
+    #[test]
+    fn save_all_formats_produce_valid_files() {
+        let buffer = AudioBuffer {
+            samples: vec![0.0, 0.5, -0.5, 1.0, -1.0],
+            sample_rate: 44100,
+            channels: 1,
+        };
+
+        for format in [WavFormat::I16, WavFormat::I24, WavFormat::F32] {
+            let path = save_test_path(&format!("{format:?}"));
+            save_wav(&path, &buffer, format).unwrap();
+
+            // Verify the file is a valid WAV by loading it
+            let loaded = load_wav(&path).unwrap();
+            assert_eq!(loaded.samples.len(), 5);
+            assert_eq!(loaded.channels, 1);
+            assert_eq!(loaded.sample_rate, 44100);
+
+            std::fs::remove_file(&path).ok();
+        }
+    }
+
+    // ---- WavFormat enum tests ----
+
+    #[test]
+    fn wav_format_debug_and_eq() {
+        assert_eq!(WavFormat::I16, WavFormat::I16);
+        assert_eq!(WavFormat::I24, WavFormat::I24);
+        assert_eq!(WavFormat::F32, WavFormat::F32);
+        assert_ne!(WavFormat::I16, WavFormat::F32);
+        // Verify Debug trait works
+        let _ = format!("{:?}", WavFormat::I16);
+    }
+
+    #[test]
+    fn wav_format_copy() {
+        let a = WavFormat::I24;
+        let b = a; // Copy
+        assert_eq!(a, b);
     }
 }

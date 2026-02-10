@@ -8,12 +8,12 @@
 
 ## Open Issues Summary
 
-**14 open issues** across 7 phases (14 completed)
+**13 open issues** across 7 phases (15 completed)
 
 | Priority | Count | Issues |
 |----------|-------|--------|
 | :red_circle: Critical | 0 | &mdash; |
-| :yellow_circle: High | 4 | #7, #18, #25, #26 |
+| :yellow_circle: High | 3 | #18, #25, #26 |
 | :green_circle: Medium | 7 | #3, #4, #11, #12, #21, #23, #24 |
 | :large_blue_circle: Low | 3 | #10, #27, #28 |
 
@@ -34,6 +34,7 @@ The following capabilities already exist in the codebase:
 - **Oscillator** &mdash; Sine, Square, Sawtooth, Triangle waveforms in `crates/core/`
 - **Engine source integration** &mdash; `SourceSpec` enum, `AudioSource` trait, oscillator/noise/additive sources in `crates/engine/`
 - **WAV file reading** &mdash; `crates/file-io/` with `AudioBuffer`, `load_wav()`, format normalization
+- **WAV file writing** &mdash; `save_wav()` with `WavFormat` enum (I16, I24, F32), sample conversion with clamping, roundtrip-verified
 - **Audio buffer playback** &mdash; `SourceSpec::AudioBuffer` with `Arc<AudioBuffer>`, looping, and `ParamMessage::Seek` position control; mono mixdown for multi-channel buffers
 - **Tauri desktop app** &mdash; `app/` with Tauri v2 + SolidJS frontend, `fourier-engine` dependency
 - **Tauri engine commands** &mdash; `start_engine`, `stop_engine`, `set_transform`, `set_gain`, `set_bypass`, `get_devices` via Tauri IPC with TypeScript bindings
@@ -71,17 +72,17 @@ The following capabilities already exist in the codebase:
 
 > **Goal:** Load and save WAV files, play files through the engine
 >
-> **Effort:** ~1 week &bull; **Status:** In progress
+> **Effort:** ~1 week &bull; **Status:** :white_check_mark: Complete
 
 | # | Title | Priority | Effort | Dependencies |
 |---|-------|----------|--------|--------------|
 | #6 | ~~Create fourier-file-io crate with WAV reading~~ | :white_check_mark: Done | ~2 days | &mdash; |
-| #7 | Add WAV file writing/export | :yellow_circle: High | ~1 day | #6 |
+| #7 | ~~Add WAV file writing/export~~ | :white_check_mark: Done | ~1 day | ~~#6~~ |
 | #8 | ~~Add loaded audio file as engine source~~ | :white_check_mark: Done | ~2 days | #5, #6 |
 
 **Key deliverables:**
 - New `crates/file-io/` crate using `hound`
-- `AudioBuffer` struct, `load_wav()`, `save_wav()`
+- `AudioBuffer` struct, `load_wav()`, ~~`save_wav()`~~ :white_check_mark:
 - ~~`SourceSpec::AudioBuffer` variant with looping and seek~~ :white_check_mark:
 
 ---
@@ -236,7 +237,7 @@ App shell and engine commands done. Moving to streaming and source commands:
 10. ~~**#16** &mdash; Implement Tauri commands for sound source selection~~ `:white_check_mark:`
 11. ~~**#17** &mdash; Build spectrum analyzer visualization with WebGL~~ `:white_check_mark:`
 12. ~~**#19** &mdash; Build transport and source control panel~~ `:white_check_mark:`
-13. **#7** &mdash; Add WAV file writing/export `:yellow_circle:`
+13. ~~**#7** &mdash; Add WAV file writing/export~~ `:white_check_mark:`
 14. **#25** &mdash; Add error handling and logging `:yellow_circle:`
 
 ### PARALLEL TRACKS
@@ -244,7 +245,7 @@ App shell and engine commands done. Moving to streaming and source commands:
 These can proceed independently alongside the critical path:
 
 - **DSP track:** ~~#9 (Parametric EQ)~~, #11 (Freeze), #12 (Pitch shift)
-- **File I/O track:** #6, #7 (WAV read/write)
+- **File I/O track:** ~~#6~~, ~~#7~~ (WAV read/write) :white_check_mark:
 - **Polish track:** #25, #26 (error handling, CI)
 
 ---
@@ -263,7 +264,7 @@ These can proceed independently alongside the critical path:
 | Order | Issue | Rationale |
 |-------|-------|-----------|
 | ~~5~~ | ~~#6 WAV reading~~ | ~~Unblocks file playback~~ :white_check_mark: |
-| 6 | #7 WAV writing | Small addition to #6 |
+| ~~6~~ | ~~#7 WAV writing~~ | ~~Small addition to #6~~ :white_check_mark: |
 | ~~7~~ | ~~#9 Parametric EQ~~ | ~~Key DSP feature~~ :white_check_mark: |
 | 8 | #4 Additive synthesis | Depends on #2, enriches sources |
 
@@ -314,13 +315,13 @@ These can proceed independently alongside the critical path:
 | Phase | Total | Critical | High | Medium | Low | Done |
 |-------|-------|----------|------|--------|-----|------|
 | 1 &mdash; Sound Gen | 4 | 0 | 0 | 2 | 0 | 2 |
-| 2 &mdash; File I/O | 3 | 0 | 1 | 0 | 0 | 2 |
+| 2 &mdash; File I/O | 3 | 0 | 0 | 0 | 0 | 3 |
 | 3 &mdash; DSP | 4 | 0 | 0 | 2 | 1 | 1 |
 | 4 &mdash; Tauri | 4 | 0 | 0 | 0 | 0 | 4 |
 | 5 &mdash; UI | 5 | 0 | 1 | 1 | 0 | 3 |
 | 6 &mdash; Workflow | 3 | 0 | 0 | 2 | 0 | 1 |
 | 7 &mdash; Polish/Web | 5 | 0 | 2 | 0 | 2 | 1 |
-| **Total** | **28** | **0** | **4** | **7** | **3** | **14** |
+| **Total** | **28** | **0** | **3** | **7** | **3** | **15** |
 
 ---
 
@@ -341,6 +342,7 @@ These can proceed independently alongside the critical path:
 ## Changelog
 
 ### 2026-02-10
+- **Completed #7** (WAV file writing/export) &mdash; added `save_wav(path, buffer, format)` function and `WavFormat` enum (`I16`, `I24`, `F32`) in `crates/file-io/src/wav.rs`; f32 samples clamped to [-1.0, 1.0] before conversion; 16-bit writes via `f64::from(sample) * i16::MAX` with rounding; 24-bit writes via `f64::from(sample) * 8_388_607.0` with rounding; 32-bit float passthrough with clamping; validates non-zero channel count; proper WAV header via hound `WavWriter::create` + `finalize`; exported `save_wav` and `WavFormat` from crate root; 16 new tests: roundtrip tests for all 3 formats in mono and stereo, sine wave roundtrips (i16 and f32), empty buffer, single sample, out-of-range clamping, zero channels error, large buffer (10s stereo), all-formats validity check, `WavFormat` Debug/Eq/Copy trait verification; completes Phase 2 (Audio File I/O) with all 3 issues done
 - **Completed #20** (transform/filter control panel) &mdash; created `<TransformPanel />` SolidJS component in `app/src/TransformPanel.tsx` with reactive state management; transform type selector dropdown supporting Identity (None), LowPass, HighPass, BandPass, Gain, and ParametricEq; per-transform parameter controls: cutoff frequency slider (20&ndash;20,000 Hz) for LowPass/HighPass, low/high frequency sliders for BandPass, gain factor slider (0.0&ndash;2.0x) for Gain; parametric EQ per-band controls with frequency slider (20&ndash;20,000 Hz), gain slider (-24 to +24 dB), Q factor slider (0.1&ndash;10.0), band type selector (Peak/Low Shelf/High Shelf), and add/remove band buttons; transform chain mode with toggle switch enabling multiple transforms in sequence, per-entry type selector and parameters, reorder (up/down) and remove buttons; all parameter changes immediately sent to engine via `setTransform()` Tauri command with `TransformSpec` union; chain mode builds `TransformSpec::Chain` with nested transforms; integrated into `ControlPanel.tsx` below source controls with visual separator; consistent dark theme styling matching existing control panel; extends Phase 5 (UI Components)
 - **Completed #9** (parametric EQ as SpectralTransform) &mdash; implemented `ParametricEq` struct implementing `SpectralTransform` in `crates/core/src/transform.rs`; `EqBand` struct with `frequency: f32`, `gain_db: f32`, `q: f32`, `band_type: BandType` fields; `BandType` enum with `Peak`, `LowShelf`, `HighShelf` variants; Peak bands apply bell-shaped gain curve using `(f/f0 - f0/f) * Q` bandwidth formula; LowShelf/HighShelf use sigmoid-based smooth transitions controlled by Q; multiple bands combine multiplicatively (summed in dB domain); DC bin left untouched; added `TransformSpec::ParametricEq { bands: Vec<EqBand> }` variant in `crates/engine/src/params.rs` with full serde support; wired `build_transform()` in `processor.rs` to construct `ParametricEq` from spec; re-exported `BandType`, `EqBand`, `ParametricEq` from `fourier-core` and `fourier-engine` crate roots; added `BandType`, `EqBand`, and `ParametricEq` TypeScript types in `app/src/bindings.ts`; 15 new unit tests in `fourier-core`: peak boost/cut/bell shape, Q bandwidth control, low shelf boost/cut, high shelf boost/cut, multi-band combination, zero gain unity, empty bands identity, DC untouched, name check; 7 new tests in `fourier-engine`: serde roundtrips for ParametricEq spec (single, empty, in chain), EqBand, BandType variants, ParamMessage with ParametricEq; 2 integration tests: engine processes audio through parametric EQ, rapid transform switching; begins Phase 3 (Enhanced DSP)
 

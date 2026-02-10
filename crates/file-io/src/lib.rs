@@ -1,13 +1,13 @@
 //! fourier-file-io: Audio file loading and saving.
 //!
-//! Currently supports WAV format via the `hound` crate, with 16-bit integer,
+//! Supports WAV format via the `hound` crate, with 16-bit integer,
 //! 24-bit integer, and 32-bit float sample formats in mono or stereo.
 
 mod error;
 mod wav;
 
 pub use error::FileIoError;
-pub use wav::load_wav;
+pub use wav::{load_wav, save_wav, WavFormat};
 
 /// A buffer of audio samples with associated metadata.
 #[derive(Debug, Clone)]
