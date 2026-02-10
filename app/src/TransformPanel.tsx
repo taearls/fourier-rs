@@ -1,4 +1,4 @@
-import { createSignal, For, Show, type Component } from "solid-js";
+import { createSignal, For, Show, type Component, type JSX } from "solid-js";
 import {
   setTransform,
   type TransformSpec,
@@ -32,14 +32,12 @@ function defaultBand(): EqBand {
   return { frequency: 1000, gain_db: 0, q: 1.0, band_type: "Peak" };
 }
 
-/** Unique ID counter for chain entries. */
-let nextChainId = 1;
-
 // ---------------------------------------------------------------------------
 // Component
 // ---------------------------------------------------------------------------
 
 const TransformPanel: Component<{ running: boolean }> = (props) => {
+  let nextChainId = 1;
   const [error, setError] = createSignal<string | null>(null);
 
   // --- Single transform state (used when chain is empty / single mode) -----
@@ -116,7 +114,13 @@ const TransformPanel: Component<{ running: boolean }> = (props) => {
       case "HighPass":
         return { type: "HighPass", value: { cutoff_hz: cutoff } };
       case "BandPass":
-        return { type: "BandPass", value: { low_hz: low, high_hz: high } };
+        return {
+          type: "BandPass",
+          value: {
+            low_hz: Math.min(low, high),
+            high_hz: Math.max(low, high),
+          },
+        };
       case "Gain":
         return { type: "Gain", value: { factor: gain } };
       case "ParametricEq":
@@ -236,34 +240,19 @@ const TransformPanel: Component<{ running: boolean }> = (props) => {
     await applyTransform();
   }
 
+  function removeKey<T>(record: Record<number, T>, key: number): Record<number, T> {
+    const copy = { ...record };
+    delete copy[key];
+    return copy;
+  }
+
   async function removeChainEntry(id: number): Promise<void> {
     setChain((prev) => prev.filter((e) => e.id !== id));
-    // Clean up parameter maps
-    setChainCutoffs((prev) => {
-      const copy = { ...prev };
-      delete copy[id];
-      return copy;
-    });
-    setChainLows((prev) => {
-      const copy = { ...prev };
-      delete copy[id];
-      return copy;
-    });
-    setChainHighs((prev) => {
-      const copy = { ...prev };
-      delete copy[id];
-      return copy;
-    });
-    setChainGains((prev) => {
-      const copy = { ...prev };
-      delete copy[id];
-      return copy;
-    });
-    setChainEqBands((prev) => {
-      const copy = { ...prev };
-      delete copy[id];
-      return copy;
-    });
+    setChainCutoffs((prev) => removeKey(prev, id));
+    setChainLows((prev) => removeKey(prev, id));
+    setChainHighs((prev) => removeKey(prev, id));
+    setChainGains((prev) => removeKey(prev, id));
+    setChainEqBands((prev) => removeKey(prev, id));
     await applyTransform();
   }
 
@@ -368,7 +357,7 @@ const TransformPanel: Component<{ running: boolean }> = (props) => {
       onAddBand: () => void;
       onRemoveBand: (i: number) => void;
     },
-  ) {
+  ): JSX.Element {
     return (
       <>
         <Show when={type === "LowPass" || type === "HighPass"}>
