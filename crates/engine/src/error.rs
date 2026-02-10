@@ -6,9 +6,15 @@ pub enum EngineError {
     /// Failed to spawn the processing thread.
     #[error("failed to spawn processing thread: {0}")]
     ThreadSpawnFailed(#[from] std::io::Error),
-    /// Failed to send a parameter message to the processing thread.
+    /// Failed to send a parameter message because the channel is full.
+    #[error("failed to send parameter: channel full")]
+    ChannelFull,
+    /// Failed to send a parameter message because the channel is disconnected.
     #[error("failed to send parameter: channel disconnected")]
-    ChannelSendFailed,
+    ChannelDisconnected,
+    /// Core DSP error.
+    #[error(transparent)]
+    Core(#[from] fourier_core::CoreError),
     /// Audio I/O error.
     #[error(transparent)]
     AudioIo(#[from] fourier_audio_io::AudioIoError),

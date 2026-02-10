@@ -408,6 +408,13 @@ fn seek_source(state: State<'_, AppState>, position: f32) -> Result<(), String> 
 /// Called from `main.rs` to configure the Tauri application builder.
 #[allow(clippy::expect_used)]
 pub fn run() {
+    tracing_subscriber::fmt()
+        .with_env_filter(
+            tracing_subscriber::EnvFilter::try_from_default_env()
+                .unwrap_or_else(|_| tracing_subscriber::EnvFilter::new("info")),
+        )
+        .init();
+
     tauri::Builder::default()
         .plugin(tauri_plugin_dialog::init())
         .manage(AppState::default())

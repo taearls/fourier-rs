@@ -11,6 +11,13 @@ use fourier_engine::processor::Engine;
 use cpal::traits::{DeviceTrait, HostTrait, StreamTrait};
 
 fn main() {
+    tracing_subscriber::fmt()
+        .with_env_filter(
+            tracing_subscriber::EnvFilter::try_from_default_env()
+                .unwrap_or_else(|_| tracing_subscriber::EnvFilter::new("info")),
+        )
+        .init();
+
     println!("=== passthrough: FFT → Identity → IFFT audio passthrough ===");
     println!("Audio will be captured and played back through the processing pipeline.");
     println!("Press Ctrl+C to stop.\n");

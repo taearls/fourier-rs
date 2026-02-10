@@ -117,9 +117,10 @@ impl Engine {
 
     /// Send a parameter change to the processing thread.
     pub fn send_param(&self, msg: ParamMessage) -> Result<(), EngineError> {
-        self.param_tx
-            .try_send(msg)
-            .map_err(|_| EngineError::ChannelSendFailed)
+        self.param_tx.try_send(msg).map_err(|e| match e {
+            crossbeam_channel::TrySendError::Full(_) => EngineError::ChannelFull,
+            crossbeam_channel::TrySendError::Disconnected(_) => EngineError::ChannelDisconnected,
+        })
     }
 
     /// Set the spectral transform.
