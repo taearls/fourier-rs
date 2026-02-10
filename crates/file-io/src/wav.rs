@@ -63,11 +63,17 @@ pub fn load_wav(path: &Path) -> Result<AudioBuffer, FileIoError> {
 /// # Errors
 ///
 /// Returns [`FileIoError::Io`] if the file cannot be created or written, or
-/// [`FileIoError::InvalidFormat`] if the buffer has zero channels.
+/// [`FileIoError::InvalidFormat`] if the buffer has zero channels or zero
+/// sample rate.
 pub fn save_wav(path: &Path, buffer: &AudioBuffer, format: WavFormat) -> Result<(), FileIoError> {
     if buffer.channels == 0 {
         return Err(FileIoError::InvalidFormat(
             "cannot save buffer with 0 channels".into(),
+        ));
+    }
+    if buffer.sample_rate == 0 {
+        return Err(FileIoError::InvalidFormat(
+            "cannot save buffer with 0 sample rate".into(),
         ));
     }
 
@@ -85,10 +91,7 @@ pub fn save_wav(path: &Path, buffer: &AudioBuffer, format: WavFormat) -> Result<
         },
     };
 
-    let mut writer = WavWriter::create(path, spec).map_err(|e| match e {
-        hound::Error::IoError(io_err) => FileIoError::Io(io_err),
-        other => FileIoError::InvalidFormat(other.to_string()),
-    })?;
+    let mut writer = WavWriter::create(path, spec).map_err(map_hound_error)?;
 
     match format {
         WavFormat::I16 => write_i16_samples(&mut writer, &buffer.samples),
@@ -96,12 +99,17 @@ pub fn save_wav(path: &Path, buffer: &AudioBuffer, format: WavFormat) -> Result<
         WavFormat::F32 => write_f32_samples(&mut writer, &buffer.samples),
     }?;
 
-    writer.finalize().map_err(|e| match e {
-        hound::Error::IoError(io_err) => FileIoError::Io(io_err),
-        other => FileIoError::InvalidFormat(other.to_string()),
-    })?;
+    writer.finalize().map_err(map_hound_error)?;
 
     Ok(())
+}
+
+/// Map a `hound::Error` to a [`FileIoError`].
+fn map_hound_error(err: hound::Error) -> FileIoError {
+    match err {
+        hound::Error::IoError(io_err) => FileIoError::Io(io_err),
+        other => FileIoError::InvalidFormat(other.to_string()),
+    }
 }
 
 /// Write samples as 16-bit signed integers.
@@ -913,6 +921,21 @@ mod tests {
         let err = result.unwrap_err();
         assert!(matches!(err, FileIoError::InvalidFormat(_)));
         assert!(err.to_string().contains("0 channels"));
+    }
+
+    #[test]
+    fn save_zero_sample_rate_errors() {
+        let buffer = AudioBuffer {
+            samples: vec![0.0],
+            sample_rate: 0,
+            channels: 1,
+        };
+        let path = save_test_path("zero_sr");
+        let result = save_wav(&path, &buffer, WavFormat::I16);
+        assert!(result.is_err());
+        let err = result.unwrap_err();
+        assert!(matches!(err, FileIoError::InvalidFormat(_)));
+        assert!(err.to_string().contains("0 sample rate"));
     }
 
     #[test]
