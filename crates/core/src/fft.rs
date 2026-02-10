@@ -8,6 +8,8 @@ use num_complex::Complex;
 use realfft::{ComplexToReal, RealFftPlanner, RealToComplex};
 use std::sync::Arc;
 
+use crate::error::CoreError;
+
 /// Wraps a forward (real→complex) and inverse (complex→real) FFT pair
 /// for a fixed frame size.
 pub struct FftProcessor {
@@ -62,14 +64,17 @@ impl FftProcessor {
     ///
     /// - `input`: mutable slice of length `fft_size` (will be modified in-place by realfft).
     /// - `output`: slice of length `fft_size/2 + 1` to receive complex spectrum.
-    #[allow(clippy::expect_used)]
-    pub fn forward(&mut self, input: &mut [f32], output: &mut [Complex<f32>]) {
+    pub fn forward(
+        &mut self,
+        input: &mut [f32],
+        output: &mut [Complex<f32>],
+    ) -> Result<(), CoreError> {
         debug_assert_eq!(input.len(), self.fft_size);
         debug_assert_eq!(output.len(), self.complex_bins());
 
         self.forward
             .process_with_scratch(input, output, &mut self.scratch_fwd)
-            .expect("forward FFT failed");
+            .map_err(|e| CoreError::FftForwardFailed(e.to_string()))
     }
 
     /// Perform inverse FFT: complex frequency-domain `input` → real time-domain `output`.
@@ -78,19 +83,24 @@ impl FftProcessor {
     ///
     /// - `input`: mutable slice of length `fft_size/2 + 1` (modified in-place by realfft).
     /// - `output`: slice of length `fft_size` to receive time-domain samples.
-    #[allow(clippy::expect_used)]
-    pub fn inverse(&mut self, input: &mut [Complex<f32>], output: &mut [f32]) {
+    pub fn inverse(
+        &mut self,
+        input: &mut [Complex<f32>],
+        output: &mut [f32],
+    ) -> Result<(), CoreError> {
         debug_assert_eq!(input.len(), self.complex_bins());
         debug_assert_eq!(output.len(), self.fft_size);
 
         self.inverse
             .process_with_scratch(input, output, &mut self.scratch_inv)
-            .expect("inverse FFT failed");
+            .map_err(|e| CoreError::FftInverseFailed(e.to_string()))?;
 
         // realfft's inverse is unnormalized; apply 1/N.
         for sample in output.iter_mut() {
             *sample *= self.inv_norm;
         }
+
+        Ok(())
     }
 
     /// Convenience: allocate a correctly-sized complex spectrum buffer.
@@ -127,8 +137,10 @@ mod tests {
         let original = input.clone();
 
         let mut spectrum = proc.alloc_spectrum();
-        proc.forward(&mut input, &mut spectrum);
-        proc.inverse(&mut spectrum, &mut input);
+        proc.forward(&mut input, &mut spectrum)
+            .expect("forward FFT should succeed");
+        proc.inverse(&mut spectrum, &mut input)
+            .expect("inverse FFT should succeed");
 
         // Verify roundtrip matches within floating-point tolerance.
         for (i, (&orig, &recon)) in original.iter().zip(input.iter()).enumerate() {
@@ -146,7 +158,8 @@ mod tests {
         let mut input = vec![1.0_f32; fft_size];
         let mut spectrum = proc.alloc_spectrum();
 
-        proc.forward(&mut input, &mut spectrum);
+        proc.forward(&mut input, &mut spectrum)
+            .expect("forward FFT should succeed");
 
         // DC bin should equal N (unnormalized DFT of constant signal).
         assert!((spectrum[0].re - fft_size as f32).abs() < 1e-3);

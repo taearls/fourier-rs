@@ -7,6 +7,7 @@
 use cpal::traits::{DeviceTrait, StreamTrait};
 use cpal::{Device, SampleFormat, Stream};
 
+use crate::error::AudioIoError;
 use crate::ring_buffer::{RingConsumer, RingProducer};
 
 /// Configuration for audio streams.
@@ -43,7 +44,7 @@ impl AudioStream {
         device: &Device,
         config: &StreamConfig,
         mut producer: RingProducer,
-    ) -> Result<Self, String> {
+    ) -> Result<Self, AudioIoError> {
         let cpal_config = cpal::StreamConfig {
             channels: config.channels,
             sample_rate: cpal::SampleRate(config.sample_rate),
@@ -51,14 +52,20 @@ impl AudioStream {
         };
 
         // Check supported format
-        let supported = device
-            .supported_input_configs()
-            .map_err(|e| format!("Failed to query input configs: {e}"))?;
+        let supported =
+            device
+                .supported_input_configs()
+                .map_err(|e| AudioIoError::ConfigQueryFailed {
+                    device_type: "input",
+                    source: e,
+                })?;
 
         let _format = supported
             .into_iter()
             .find(|c| c.sample_format() == SampleFormat::F32)
-            .ok_or("No f32 input format supported")?;
+            .ok_or(AudioIoError::UnsupportedSampleFormat {
+                device_type: "input",
+            })?;
 
         let stream = device
             .build_input_stream(
@@ -70,15 +77,19 @@ impl AudioStream {
                     producer.push_slice(data);
                 },
                 |err| {
-                    eprintln!("Audio input error: {err}");
+                    tracing::error!("Audio input stream error: {err}");
                 },
                 None,
             )
-            .map_err(|e| format!("Failed to build input stream: {e}"))?;
+            .map_err(|e| AudioIoError::StreamBuildFailed {
+                stream_type: "input",
+                source: e,
+            })?;
 
-        stream
-            .play()
-            .map_err(|e| format!("Failed to start input: {e}"))?;
+        stream.play().map_err(|e| AudioIoError::StreamPlayFailed {
+            stream_type: "input",
+            source: e,
+        })?;
 
         Ok(Self {
             _input_stream: Some(stream),
@@ -95,7 +106,7 @@ impl AudioStream {
         device: &Device,
         config: &StreamConfig,
         mut consumer: RingConsumer,
-    ) -> Result<Self, String> {
+    ) -> Result<Self, AudioIoError> {
         let cpal_config = cpal::StreamConfig {
             channels: config.channels,
             sample_rate: cpal::SampleRate(config.sample_rate),
@@ -114,15 +125,19 @@ impl AudioStream {
                     }
                 },
                 |err| {
-                    eprintln!("Audio output error: {err}");
+                    tracing::error!("Audio output stream error: {err}");
                 },
                 None,
             )
-            .map_err(|e| format!("Failed to build output stream: {e}"))?;
+            .map_err(|e| AudioIoError::StreamBuildFailed {
+                stream_type: "output",
+                source: e,
+            })?;
 
-        stream
-            .play()
-            .map_err(|e| format!("Failed to start output: {e}"))?;
+        stream.play().map_err(|e| AudioIoError::StreamPlayFailed {
+            stream_type: "output",
+            source: e,
+        })?;
 
         Ok(Self {
             _input_stream: None,

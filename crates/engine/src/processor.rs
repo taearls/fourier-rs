@@ -15,6 +15,7 @@ use fourier_core::transform::{
     SpectralTransform, TransformChain,
 };
 
+use crate::error::EngineError;
 use crate::params::{EngineParams, ParamMessage, SourceSpec, TransformSpec};
 use crate::source::{build_source, AudioSource};
 
@@ -62,7 +63,11 @@ impl Engine {
     /// Returns `(engine, io)` where:
     /// - `engine` provides control and spectral data.
     /// - `io` provides the ring buffer halves to connect to audio streams.
-    pub fn new(sample_rate: f32, fft_size: usize, hop_size: usize) -> (Self, EngineIo) {
+    pub fn new(
+        sample_rate: f32,
+        fft_size: usize,
+        hop_size: usize,
+    ) -> Result<(Self, EngineIo), EngineError> {
         // Ring buffers: input (mic → processing) and output (processing → speakers).
         let ring_capacity = fft_size * 8;
         let (input_producer, input_consumer) = AudioRingBuffer::create(ring_capacity);
@@ -82,7 +87,6 @@ impl Engine {
         };
 
         // Spawn the processing thread.
-        #[allow(clippy::expect_used)]
         let thread = thread::Builder::new()
             .name("fourier-processing".to_string())
             .spawn(move || {
@@ -93,8 +97,9 @@ impl Engine {
                     param_rx,
                     snapshot_tx,
                 );
-            })
-            .expect("Failed to spawn processing thread");
+            })?;
+
+        tracing::info!(sample_rate, fft_size, hop_size, "Engine started");
 
         let engine = Self {
             processing_thread: Some(thread),
@@ -107,33 +112,33 @@ impl Engine {
             output_consumer,
         };
 
-        (engine, io)
+        Ok((engine, io))
     }
 
     /// Send a parameter change to the processing thread.
-    pub fn send_param(&self, msg: ParamMessage) -> Result<(), String> {
+    pub fn send_param(&self, msg: ParamMessage) -> Result<(), EngineError> {
         self.param_tx
             .try_send(msg)
-            .map_err(|e| format!("Failed to send param: {e}"))
+            .map_err(|_| EngineError::ChannelSendFailed)
     }
 
     /// Set the spectral transform.
-    pub fn set_transform(&self, spec: TransformSpec) -> Result<(), String> {
+    pub fn set_transform(&self, spec: TransformSpec) -> Result<(), EngineError> {
         self.send_param(ParamMessage::SetTransform(spec))
     }
 
     /// Set output gain.
-    pub fn set_output_gain(&self, gain: f32) -> Result<(), String> {
+    pub fn set_output_gain(&self, gain: f32) -> Result<(), EngineError> {
         self.send_param(ParamMessage::SetOutputGain(gain))
     }
 
     /// Set bypass mode.
-    pub fn set_bypass(&self, bypass: bool) -> Result<(), String> {
+    pub fn set_bypass(&self, bypass: bool) -> Result<(), EngineError> {
         self.send_param(ParamMessage::SetBypass(bypass))
     }
 
     /// Set the audio source.
-    pub fn set_source(&self, spec: SourceSpec) -> Result<(), String> {
+    pub fn set_source(&self, spec: SourceSpec) -> Result<(), EngineError> {
         self.send_param(ParamMessage::SetSource(spec))
     }
 
@@ -142,7 +147,7 @@ impl Engine {
     /// `position` is clamped to `[0.0, 1.0]` where 0.0 is the start and
     /// 1.0 is the end. Has no effect if the current source doesn't support
     /// seeking (e.g. oscillators, noise).
-    pub fn seek(&self, position: f32) -> Result<(), String> {
+    pub fn seek(&self, position: f32) -> Result<(), EngineError> {
         self.send_param(ParamMessage::Seek(position))
     }
 
@@ -160,6 +165,7 @@ impl Engine {
 
     /// Shut down the engine and join the processing thread.
     pub fn shutdown(mut self) {
+        tracing::info!("Engine shutting down");
         let _ = self.param_tx.send(ParamMessage::Shutdown);
         if let Some(handle) = self.processing_thread.take() {
             let _ = handle.join();
@@ -169,6 +175,7 @@ impl Engine {
 
 impl Drop for Engine {
     fn drop(&mut self) {
+        tracing::debug!("Engine dropped, stopping processing thread");
         let _ = self.param_tx.try_send(ParamMessage::Shutdown);
         if let Some(handle) = self.processing_thread.take() {
             let _ = handle.join();
@@ -211,6 +218,13 @@ fn processing_loop(
     param_rx: Receiver<ParamMessage>,
     snapshot_tx: Sender<SpectralSnapshot>,
 ) {
+    tracing::debug!(
+        fft_size = config.fft_size,
+        hop_size = config.hop_size,
+        sample_rate = config.sample_rate,
+        "Processing thread started"
+    );
+
     let mut ola = OverlapAddProcessor::new(config.clone());
     let mut transform: Box<dyn SpectralTransform> = Box::new(IdentityTransform);
     let mut params = EngineParams::default();
@@ -229,13 +243,21 @@ fn processing_loop(
         // 1. Check for parameter updates (non-blocking).
         while let Ok(msg) = param_rx.try_recv() {
             match msg {
-                ParamMessage::SetOutputGain(g) => params.output_gain = g,
-                ParamMessage::SetBypass(b) => params.bypass = b,
+                ParamMessage::SetOutputGain(g) => {
+                    tracing::debug!(gain = g, "Output gain changed");
+                    params.output_gain = g;
+                }
+                ParamMessage::SetBypass(b) => {
+                    tracing::debug!(bypass = b, "Bypass mode changed");
+                    params.bypass = b;
+                }
                 ParamMessage::SetPeakThreshold(t) => params.peak_threshold_db = t,
                 ParamMessage::SetTransform(spec) => {
+                    tracing::debug!("Transform changed");
                     transform = build_transform(&spec);
                 }
                 ParamMessage::SetSource(spec) => {
+                    tracing::debug!("Audio source changed");
                     source = build_source(&spec, config.sample_rate);
                 }
                 ParamMessage::Seek(pos) => {
@@ -243,7 +265,10 @@ fn processing_loop(
                         src.seek(pos);
                     }
                 }
-                ParamMessage::Shutdown => return,
+                ParamMessage::Shutdown => {
+                    tracing::debug!("Processing thread received shutdown");
+                    return;
+                }
             }
         }
 
@@ -329,7 +354,7 @@ mod tests {
         fft_size: usize,
         hop_size: usize,
     ) -> Vec<f32> {
-        let (engine, io) = Engine::new(sample_rate, fft_size, hop_size);
+        let (engine, io) = Engine::new(sample_rate, fft_size, hop_size).unwrap();
         engine.set_transform(transform).unwrap();
 
         let mut producer = io.input_producer;
@@ -382,7 +407,7 @@ mod tests {
         let hop_size = 128;
         let sample_rate = 44100.0;
 
-        let (engine, io) = Engine::new(sample_rate, fft_size, hop_size);
+        let (engine, io) = Engine::new(sample_rate, fft_size, hop_size).unwrap();
         engine.set_bypass(true).unwrap();
 
         let mut producer = io.input_producer;
@@ -451,7 +476,7 @@ mod tests {
         let hop_size = 128;
         let sample_rate = 44100.0;
 
-        let (engine, io) = Engine::new(sample_rate, fft_size, hop_size);
+        let (engine, io) = Engine::new(sample_rate, fft_size, hop_size).unwrap();
 
         // Switch transforms rapidly -- should not panic or deadlock.
         engine.set_transform(TransformSpec::Identity).unwrap();
@@ -492,7 +517,7 @@ mod tests {
         let hop_size = 128;
         let sample_rate = 44100.0;
 
-        let (engine, io) = Engine::new(sample_rate, fft_size, hop_size);
+        let (engine, io) = Engine::new(sample_rate, fft_size, hop_size).unwrap();
         engine.set_transform(TransformSpec::Identity).unwrap();
 
         let mut producer = io.input_producer;
@@ -530,7 +555,7 @@ mod tests {
         let sample_rate = 44100.0;
 
         // Create and immediately shutdown -- should not hang or panic.
-        let (engine, _io) = Engine::new(sample_rate, fft_size, hop_size);
+        let (engine, _io) = Engine::new(sample_rate, fft_size, hop_size).unwrap();
         engine.shutdown();
     }
 
@@ -541,7 +566,7 @@ mod tests {
         let sample_rate = 44100.0;
 
         // Create and drop without explicit shutdown -- Drop impl should handle it.
-        let (engine, _io) = Engine::new(sample_rate, fft_size, hop_size);
+        let (engine, _io) = Engine::new(sample_rate, fft_size, hop_size).unwrap();
         drop(engine);
     }
 
@@ -553,7 +578,7 @@ mod tests {
         let hop_size = 128;
         let sample_rate = 44100.0;
 
-        let (engine, io) = Engine::new(sample_rate, fft_size, hop_size);
+        let (engine, io) = Engine::new(sample_rate, fft_size, hop_size).unwrap();
         engine.set_transform(TransformSpec::Identity).unwrap();
         engine
             .set_source(SourceSpec::Oscillator {
@@ -586,7 +611,7 @@ mod tests {
         let hop_size = 128;
         let sample_rate = 44100.0;
 
-        let (engine, io) = Engine::new(sample_rate, fft_size, hop_size);
+        let (engine, io) = Engine::new(sample_rate, fft_size, hop_size).unwrap();
         engine.set_transform(TransformSpec::Identity).unwrap();
         engine
             .set_source(SourceSpec::Noise {
@@ -616,7 +641,7 @@ mod tests {
         let hop_size = 128;
         let sample_rate = 44100.0;
 
-        let (engine, io) = Engine::new(sample_rate, fft_size, hop_size);
+        let (engine, io) = Engine::new(sample_rate, fft_size, hop_size).unwrap();
         engine.set_transform(TransformSpec::Identity).unwrap();
         engine
             .set_source(SourceSpec::Additive {
@@ -654,7 +679,7 @@ mod tests {
         let hop_size = 128;
         let sample_rate = 44100.0;
 
-        let (engine, io) = Engine::new(sample_rate, fft_size, hop_size);
+        let (engine, io) = Engine::new(sample_rate, fft_size, hop_size).unwrap();
 
         // Start with oscillator source.
         engine
@@ -697,7 +722,7 @@ mod tests {
         let hop_size = 512;
         let sample_rate = 44100.0;
 
-        let (engine, io) = Engine::new(sample_rate, fft_size, hop_size);
+        let (engine, io) = Engine::new(sample_rate, fft_size, hop_size).unwrap();
 
         // Set a low-pass filter that should pass a 200 Hz sine.
         engine
@@ -757,7 +782,7 @@ mod tests {
         let hop_size = 128;
         let sample_rate = 44100.0;
 
-        let (engine, _io) = Engine::new(sample_rate, fft_size, hop_size);
+        let (engine, _io) = Engine::new(sample_rate, fft_size, hop_size).unwrap();
 
         // Rapid source switching should not cause deadlock or panic.
         for _ in 0..10 {
@@ -800,7 +825,7 @@ mod tests {
             channels: 1,
         });
 
-        let (engine, io) = Engine::new(sample_rate, fft_size, hop_size);
+        let (engine, io) = Engine::new(sample_rate, fft_size, hop_size).unwrap();
         engine.set_transform(TransformSpec::Identity).unwrap();
         engine
             .set_source(SourceSpec::AudioBuffer {
@@ -842,7 +867,7 @@ mod tests {
             channels: 1,
         });
 
-        let (engine, io) = Engine::new(sample_rate, fft_size, hop_size);
+        let (engine, io) = Engine::new(sample_rate, fft_size, hop_size).unwrap();
         engine.set_transform(TransformSpec::Identity).unwrap();
         engine
             .set_source(SourceSpec::AudioBuffer {
@@ -884,7 +909,7 @@ mod tests {
             channels: 1,
         });
 
-        let (engine, io) = Engine::new(sample_rate, fft_size, hop_size);
+        let (engine, io) = Engine::new(sample_rate, fft_size, hop_size).unwrap();
         engine.set_transform(TransformSpec::Identity).unwrap();
         engine
             .set_source(SourceSpec::AudioBuffer {
@@ -924,7 +949,7 @@ mod tests {
             channels: 1,
         });
 
-        let (engine, _io) = Engine::new(sample_rate, fft_size, hop_size);
+        let (engine, _io) = Engine::new(sample_rate, fft_size, hop_size).unwrap();
 
         // Rapid switching between audio buffer and other sources.
         for _ in 0..10 {
@@ -958,7 +983,7 @@ mod tests {
         let hop_size = 512;
         let sample_rate = 44100.0;
 
-        let (engine, io) = Engine::new(sample_rate, fft_size, hop_size);
+        let (engine, io) = Engine::new(sample_rate, fft_size, hop_size).unwrap();
 
         // Apply a parametric EQ with a boost at 1000 Hz.
         engine
@@ -1002,7 +1027,7 @@ mod tests {
         let hop_size = 128;
         let sample_rate = 44100.0;
 
-        let (engine, _io) = Engine::new(sample_rate, fft_size, hop_size);
+        let (engine, _io) = Engine::new(sample_rate, fft_size, hop_size).unwrap();
 
         // Rapidly switch between parametric EQ and other transforms.
         for _ in 0..10 {

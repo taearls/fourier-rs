@@ -93,7 +93,8 @@ fn main() {
         window.apply(&mut frame);
 
         // Forward FFT.
-        fft.forward(&mut frame, &mut spectrum);
+        fft.forward(&mut frame, &mut spectrum)
+            .expect("Forward FFT failed");
 
         // Detect peaks.
         let peaks = detect_peaks(&spectrum, sample_rate, fft_size, -40.0);

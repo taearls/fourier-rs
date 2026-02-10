@@ -3,6 +3,7 @@
 //! Contains FFT/IFFT wrappers, window functions, overlap-add logic,
 //! spectral peak detection, and the user-defined transform interface.
 
+pub mod error;
 pub mod fft;
 pub mod oscillator;
 pub mod overlap_add;
@@ -11,6 +12,7 @@ pub mod transform;
 pub mod window;
 
 // Re-export key types at crate root for convenience.
+pub use error::CoreError;
 pub use fft::FftProcessor;
 pub use oscillator::{Oscillator, WaveformType};
 pub use overlap_add::OverlapAddProcessor;

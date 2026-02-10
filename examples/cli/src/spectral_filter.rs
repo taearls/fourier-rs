@@ -41,7 +41,8 @@ fn main() {
     let fft_size = 2048;
     let hop_size = 1024;
 
-    let (engine, io) = Engine::new(sample_rate as f32, fft_size, hop_size);
+    let (engine, io) =
+        Engine::new(sample_rate as f32, fft_size, hop_size).expect("Failed to create engine");
     engine
         .set_transform(transform)
         .expect("Failed to set transform");

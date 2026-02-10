@@ -8,6 +8,8 @@ description = "Audio I/O via cpal, ring buffers, device management"
 [dependencies]
 cpal.workspace = true
 ringbuf.workspace = true
+thiserror.workspace = true
+tracing.workspace = true
 
 [lints]
 workspace = true

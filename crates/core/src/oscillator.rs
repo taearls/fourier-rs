@@ -157,7 +157,7 @@ mod tests {
 
         let mut fft = FftProcessor::new(FFT_SIZE);
         let mut spectrum = fft.alloc_spectrum();
-        fft.forward(&mut buffer, &mut spectrum);
+        fft.forward(&mut buffer, &mut spectrum).unwrap();
 
         spectrum.iter().map(|c| c.norm()).collect()
     }

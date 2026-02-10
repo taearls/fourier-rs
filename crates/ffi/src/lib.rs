@@ -39,7 +39,9 @@ pub extern "C" fn engine_create(
     fft_size: usize,
     hop_size: usize,
 ) -> *mut FfiEngine {
-    let (engine, io) = Engine::new(sample_rate, fft_size, hop_size);
+    let Ok((engine, io)) = Engine::new(sample_rate, fft_size, hop_size) else {
+        return ptr::null_mut();
+    };
     let ffi = Box::new(FfiEngine {
         engine,
         _io: Some(io),
