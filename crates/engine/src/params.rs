@@ -3,6 +3,7 @@
 use std::sync::Arc;
 
 use fourier_core::transform::EqBand;
+pub use fourier_core::NoiseType;
 use fourier_core::WaveformType;
 use fourier_file_io::AudioBuffer;
 use serde::{Deserialize, Serialize};
@@ -26,15 +27,6 @@ impl Default for EngineParams {
             peak_threshold_db: -60.0,
         }
     }
-}
-
-/// Type of noise to generate.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
-pub enum NoiseType {
-    /// Uniform white noise (equal energy per sample).
-    White,
-    /// Pink noise (equal energy per octave, −3 dB/octave roll-off).
-    Pink,
 }
 
 /// A single partial for additive synthesis.

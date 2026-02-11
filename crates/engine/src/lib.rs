@@ -12,7 +12,7 @@ pub mod processor;
 pub mod source;
 
 pub use error::EngineError;
-pub use fourier_core::{BandType, EqBand, WaveformType};
+pub use fourier_core::{BandType, EqBand, NoiseGenerator, WaveformType};
 pub use params::{EngineParams, NoiseType, ParamMessage, Partial, SourceSpec, TransformSpec};
 pub use processor::{Engine, SpectralSnapshot, WaveformSnapshot};
 pub use source::{AudioBufferSource, AudioSource};
