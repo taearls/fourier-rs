@@ -6,6 +6,7 @@
  */
 
 import { invoke } from "@tauri-apps/api/core";
+import { listen, type UnlistenFn } from "@tauri-apps/api/event";
 
 // ---------------------------------------------------------------------------
 // Device types
@@ -296,4 +297,66 @@ export function listPresets(): Promise<PresetInfo[]> {
  */
 export function deletePreset(name: string): Promise<void> {
   return invoke("delete_preset", { name });
+}
+
+// ---------------------------------------------------------------------------
+// Audio export commands
+// ---------------------------------------------------------------------------
+
+/** Progress payload emitted during audio export. */
+export interface ExportProgress {
+  progress: number;
+}
+
+/**
+ * Export processed audio to a WAV file.
+ *
+ * Runs an offline render (faster than real-time) using the specified source,
+ * transform, and gain settings. The engine continues live playback during
+ * export. Progress is reported via the `export-progress` event.
+ *
+ * For file sources, the entire buffer is rendered (ignoring `durationSecs`).
+ * For generated sources, renders the specified duration.
+ *
+ * @param path - Absolute path for the output WAV file.
+ * @param source - Audio source configuration.
+ * @param transform - Spectral transform chain.
+ * @param gain - Master output gain (linear).
+ * @param durationSecs - Duration in seconds (used for generated sources).
+ * @param sampleRate - Sample rate in Hz (e.g. 44100).
+ * @param fftSize - FFT size for spectral processing (e.g. 2048).
+ */
+export function exportAudio(
+  path: string,
+  source: SourceSpec,
+  transform: TransformSpec,
+  gain: number,
+  durationSecs: number,
+  sampleRate: number,
+  fftSize: number,
+): Promise<void> {
+  return invoke("export_audio", {
+    path,
+    source,
+    transform,
+    gain,
+    durationSecs,
+    sampleRate,
+    fftSize,
+  });
+}
+
+/**
+ * Listen for export progress events.
+ *
+ * Returns an unlisten function to stop receiving events.
+ *
+ * @param callback - Called with progress (0.0 to 1.0) as the export proceeds.
+ */
+export function onExportProgress(
+  callback: (progress: number) => void,
+): Promise<UnlistenFn> {
+  return listen<ExportProgress>("export-progress", (event) => {
+    callback(event.payload.progress);
+  });
 }

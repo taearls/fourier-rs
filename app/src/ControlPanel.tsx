@@ -1,5 +1,5 @@
-import { createSignal, Show, type Component } from "solid-js";
-import { open } from "@tauri-apps/plugin-dialog";
+import { createSignal, onCleanup, Show, type Component } from "solid-js";
+import { open, save } from "@tauri-apps/plugin-dialog";
 import {
   startEngine,
   stopEngine,
@@ -10,6 +10,8 @@ import {
   setSourceFile,
   seekSource,
   setTransform,
+  exportAudio,
+  onExportProgress,
   type WaveformType,
   type NoiseType,
   type SourceSpec,
@@ -58,6 +60,11 @@ const ControlPanel: Component = () => {
   // Transform tracking (for preset save)
   const [currentTransform, setCurrentTransform] = createSignal<TransformSpec>({ type: "Identity" });
   const [presetTransform, setPresetTransform] = createSignal<TransformSpec | null>(null);
+
+  // Export state
+  const [exporting, setExporting] = createSignal(false);
+  const [exportProgress, setExportProgress] = createSignal(0);
+  const [exportDuration, setExportDuration] = createSignal(5);
 
   // -----------------------------------------------------------------------
   // Helpers
@@ -284,6 +291,45 @@ const ControlPanel: Component = () => {
   }
 
   // -----------------------------------------------------------------------
+  // Audio export
+  // -----------------------------------------------------------------------
+
+  async function handleExport(): Promise<void> {
+    if (exporting()) return;
+
+    const path = await save({
+      defaultPath: "export.wav",
+      filters: [{ name: "WAV Audio", extensions: ["wav"] }],
+    });
+    if (!path) return;
+
+    setExporting(true);
+    setExportProgress(0);
+
+    const unlisten = await onExportProgress((pct) => {
+      setExportProgress(pct);
+    });
+
+    await withError(async () => {
+      try {
+        await exportAudio(
+          path,
+          buildCurrentSource(),
+          currentTransform(),
+          gain(),
+          exportDuration(),
+          DEFAULT_SAMPLE_RATE,
+          DEFAULT_FFT_SIZE,
+        );
+      } finally {
+        unlisten();
+        setExporting(false);
+        setExportProgress(0);
+      }
+    });
+  }
+
+  // -----------------------------------------------------------------------
   // Render
   // -----------------------------------------------------------------------
 
@@ -452,6 +498,48 @@ const ControlPanel: Component = () => {
         onSpecChange={setCurrentTransform}
         presetTransform={presetTransform}
       />
+
+      {/* Separator */}
+      <div class="cp-separator" />
+
+      {/* Export controls */}
+      <section class="cp-section cp-export">
+        <label class="cp-section-label">Export</label>
+        <Show when={source() !== "file"}>
+          <div class="cp-field">
+            <label>Duration (s)</label>
+            <input
+              type="number"
+              min="0.1"
+              max="600"
+              step="0.1"
+              value={exportDuration()}
+              onInput={(e) =>
+                setExportDuration(parseFloat(e.currentTarget.value) || 5)
+              }
+              class="cp-export-duration"
+            />
+          </div>
+        </Show>
+        <button
+          class="cp-btn cp-export-btn"
+          onClick={handleExport}
+          disabled={exporting()}
+        >
+          {exporting() ? "Exporting..." : "Export WAV"}
+        </button>
+        <Show when={exporting()}>
+          <div class="cp-export-progress">
+            <div
+              class="cp-export-progress-bar"
+              style={{ width: `${Math.round(exportProgress() * 100)}%` }}
+            />
+            <span class="cp-export-progress-text">
+              {Math.round(exportProgress() * 100)}%
+            </span>
+          </div>
+        </Show>
+      </section>
     </div>
   );
 };
