@@ -8,13 +8,13 @@
 
 ## Open Issues Summary
 
-**9 open issues** across 7 phases (19 completed)
+**8 open issues** across 7 phases (20 completed)
 
 | Priority | Count | Issues |
 |----------|-------|--------|
 | :red_circle: Critical | 0 | &mdash; |
 | :yellow_circle: High | 0 | &mdash; |
-| :green_circle: Medium | 6 | #3, #4, #11, #12, #23, #24 |
+| :green_circle: Medium | 5 | #4, #11, #12, #23, #24 |
 | :large_blue_circle: Low | 3 | #10, #27, #28 |
 
 ---
@@ -32,6 +32,7 @@ The following capabilities already exist in the codebase:
 - **Engine orchestrator** &mdash; `crates/engine/` with parameter messaging and spectral snapshots
 - **FFI bindings** &mdash; `crates/ffi/`
 - **Oscillator** &mdash; Sine, Square, Sawtooth, Triangle waveforms in `crates/core/`
+- **Noise generators** &mdash; `NoiseGenerator` with White (xorshift64 PRNG) and Pink (Voss-McCartney, 16 rows) noise in `crates/core/`; engine's noise sources refactored to use `fourier-core::NoiseGenerator`
 - **Engine source integration** &mdash; `SourceSpec` enum, `AudioSource` trait, oscillator/noise/additive sources in `crates/engine/`
 - **WAV file reading** &mdash; `crates/file-io/` with `AudioBuffer`, `load_wav()`, format normalization
 - **WAV file writing** &mdash; `save_wav()` with `WavFormat` enum (I16, I24, F32), sample conversion with clamping, roundtrip-verified
@@ -59,13 +60,13 @@ The following capabilities already exist in the codebase:
 | # | Title | Priority | Effort | Dependencies |
 |---|-------|----------|--------|--------------|
 | #2 | ~~Add oscillator module with standard waveforms~~ | :white_check_mark: Done | ~1 day | &mdash; |
-| #3 | Add noise generators (white, pink) | :green_circle: Medium | ~1 day | &mdash; |
+| #3 | ~~Add noise generators (white, pink)~~ | :white_check_mark: Done | ~1 day | &mdash; |
 | #4 | Add additive synthesis module | :green_circle: Medium | ~1 day | #2 |
 | #5 | ~~Integrate sound generation into engine as audio source~~ | :white_check_mark: Done | ~2 days | #2 |
 
 **Key deliverables:**
 - `Oscillator` with Sine, Square, Sawtooth, Triangle waveforms
-- `NoiseGenerator` with White and Pink noise (Voss-McCartney)
+- ~~`NoiseGenerator` with White and Pink noise (Voss-McCartney)~~ :white_check_mark:
 - `AdditiveSynth` with per-partial control
 - `SourceSpec` enum and `ParamMessage::SetSource` in engine
 
@@ -263,7 +264,7 @@ These can proceed independently alongside the critical path:
 | ~~1~~ | ~~#30 Dev infrastructure~~ | ~~Establish linting, formatting, CI before new code~~ :white_check_mark: |
 | ~~2~~ | ~~#2 Oscillator module~~ | ~~Unblocks all sound generation~~ :white_check_mark: |
 | ~~3~~ | ~~#5 Engine source integration~~ | ~~Connects generators to pipeline~~ :white_check_mark: |
-| 4 | #3 Noise generators | Parallel with #5, simple module |
+| ~~4~~ | ~~#3 Noise generators~~ | ~~Parallel with #5, simple module~~ :white_check_mark: |
 
 ### Batch 2: File I/O + DSP (Week 2)
 | Order | Issue | Rationale |
@@ -319,14 +320,14 @@ These can proceed independently alongside the critical path:
 
 | Phase | Total | Critical | High | Medium | Low | Done |
 |-------|-------|----------|------|--------|-----|------|
-| 1 &mdash; Sound Gen | 4 | 0 | 0 | 2 | 0 | 2 |
+| 1 &mdash; Sound Gen | 4 | 0 | 0 | 1 | 0 | 3 |
 | 2 &mdash; File I/O | 3 | 0 | 0 | 0 | 0 | 3 |
 | 3 &mdash; DSP | 4 | 0 | 0 | 2 | 1 | 1 |
 | 4 &mdash; Tauri | 4 | 0 | 0 | 0 | 0 | 4 |
 | 5 &mdash; UI | 5 | 0 | 0 | 0 | 0 | 5 |
 | 6 &mdash; Workflow | 3 | 0 | 0 | 2 | 0 | 1 |
 | 7 &mdash; Polish/Web | 5 | 0 | 0 | 0 | 2 | 3 |
-| **Total** | **28** | **0** | **0** | **6** | **3** | **19** |
+| **Total** | **28** | **0** | **0** | **5** | **3** | **20** |
 
 ---
 
@@ -347,6 +348,7 @@ These can proceed independently alongside the critical path:
 ## Changelog
 
 ### 2026-02-11
+- **Completed #3** (noise generators: white, pink) &mdash; created `crates/core/src/noise.rs` with `NoiseGenerator` struct and `NoiseType` enum (`White`, `Pink`); `NoiseGenerator::new(noise_type, amplitude, sample_rate)` constructor with `generate(&mut self, output: &mut [f32])` buffer-filling method; white noise via xorshift64 PRNG (deterministic, no external dependencies) mapping upper 24 bits to `[-1.0, +1.0)` float range; pink noise via Voss-McCartney algorithm with 16 octave rows, trailing-zeros scheduling for per-row update timing, normalization factor `1/(NUM_ROWS+1)`, and running-sum accumulator for O(1) per-sample generation; PRNG extracted to module-level `prng_next_u64`/`prng_next_f32` free functions to satisfy borrow checker when iterating pink rows; getter/setter methods (`set_amplitude`, `set_noise_type`, `amplitude()`, `noise_type()`, `sample_rate()`) with `const` where possible; serde `Serialize`/`Deserialize` on `NoiseType`; re-exported `NoiseGenerator` and `NoiseType` from `fourier-core` crate root; refactored `fourier-engine` to use `fourier_core::NoiseGenerator` instead of duplicating white/pink noise implementations &mdash; replaced `WhiteNoiseSource` and `PinkNoiseSource` structs in `crates/engine/src/source.rs` with unified `NoiseSource` wrapper delegating to `NoiseGenerator`; `NoiseType` in `crates/engine/src/params.rs` changed from local enum to `pub use fourier_core::NoiseType` re-export; 15 new unit tests in `fourier-core`: white noise energy, amplitude bounds, approximately flat spectrum (averaged over 32 FFT frames with octave band comparison), pink noise energy, amplitude bounds, approximately &minus;3dB/octave rolloff (averaged over 64 FFT frames across 4 octave pairs), pink more-low-than-high total energy, white-flatter-than-pink comparative spectral analysis, property getters, noise type switching, amplitude energy scaling (`0.25&sup2; = 0.0625` ratio verification), zero amplitude silence, empty buffer no-op, serde roundtrip, deterministic output; all 178 existing tests pass
 - **Completed #26** (GitHub Actions CI pipeline) &mdash; upgraded `.github/workflows/ci.yml` with stable + nightly Rust toolchain matrix; nightly jobs allowed to fail via `continue-on-error`; `dtolnay/rust-toolchain` action for explicit toolchain management; `Swatinem/rust-cache` for build caching on clippy, test, and build jobs; `fail-fast: false` ensures all matrix combinations run to completion; fmt job uses stable-only (formatting is toolchain-independent); all four required jobs (build, test, clippy, fmt) run on `macos-latest`; triggers on push to main and PRs; deny job unchanged on ubuntu-latest; CI badge already present in README.md
 - **Completed #21** (peak frequency and note detection display) &mdash; created `<TunerDisplay />` SolidJS component in `app/src/TunerDisplay.tsx` displaying detected pitch as a musical note with tuning accuracy; receives `SpectralSnapshot` via props and extracts strongest peak within 20Hz&ndash;10kHz above -60dB threshold; `tuner-utils.ts` utility module with `getTunerReading()` function performing frequency-to-MIDI conversion (`midi = 69 + 12 * log2(freq / 440)`), note name mapping via chromatic lookup table, octave calculation, and cents deviation (`(fractionalMidi - nearestMidi) * 100`); displays note label (e.g. &ldquo;A4&rdquo;, &ldquo;C#5&rdquo;), frequency in Hz, and cents deviation with color-coded visual indicator; color coding: green (#22c55e) within &pm;5 cents (in tune), yellow (#eab308) &pm;5&ndash;20 cents (close), red (#ef4444) beyond &pm;20 cents (out of tune); horizontal cents bar with centered reference marker, circular indicator sliding left/right proportional to deviation (&pm;50 cent range), smooth CSS transitions; no-signal graceful fallback showing &ldquo;--&rdquo; for note, frequency, and cents when no valid peak detected; integrated into `App.tsx` viz-stack below waveform display; styled in `styles.css` matching dark theme with `var(--border)` separator, `var(--fg)` text, and tabular-nums for stable numeric readout; `TunerReading` and `TunerColor` TypeScript types exported for potential reuse; all 164 existing tests pass; completes Phase 5 (UI Components) with all 5 issues done
 - **Completed #18** (waveform/oscilloscope display) &mdash; added `WaveformSnapshot` struct in `crates/engine/src/processor.rs` with `samples: Vec<f32>`, `sample_rate`, `fft_size`, `timestamp_ms`; rolling waveform buffer (4&times;fft_size capacity) in the processing loop captures time-domain output samples pre-gain for visualization; `waveform_buf_push()` and `build_waveform_snapshot()` helpers extract chronologically-ordered samples from the circular buffer; separate bounded channel (capacity 4) with drain-to-latest `Engine::latest_waveform()` method; `get_waveform` Tauri command in `app/src-tauri/src/lib.rs` mirrors `get_spectrum` pattern; `WaveformSnapshot` TypeScript interface and `getWaveform()` wrapper in `app/src/bindings.ts`; `<WaveformDisplay />` SolidJS component in `app/src/WaveformDisplay.tsx` with WebGL rendering via `drawWaveform()` method (green oscilloscope color #22c55e), zero-crossing trigger via `findRisingZeroCrossing()` for stable periodic signal display, amplitude axis (-1 to +1) with center-line emphasis, time axis (ms) with adaptive tick intervals, responsive resize via ResizeObserver, 2D canvas overlay for axis labels and grid; stacked layout with spectrum analyzer above waveform below in `.viz-stack` flex column; waveform display window capped at 50ms for readable oscilloscope view; utility functions in `app/src/waveform-utils.ts` for vertex building, zero-crossing detection, and axis formatting; `App.tsx` polls both `getSpectrum()` and `getWaveform()` in parallel via `Promise.all` for synchronized 60fps updates; 2 new engine tests (waveform snapshot from live input, waveform from oscillator source); all 164 tests pass; extends Phase 5 (UI Components)
