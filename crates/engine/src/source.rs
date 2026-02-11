@@ -5,10 +5,9 @@
 //! frame to fill its input chunk instead of (or in addition to) reading
 //! from the live-input ring buffer.
 
-use std::f32::consts::TAU;
 use std::sync::Arc;
 
-use fourier_core::{NoiseGenerator, NoiseType, Oscillator};
+use fourier_core::{AdditiveSynth, NoiseGenerator, NoiseType, Oscillator};
 use fourier_file_io::AudioBuffer;
 
 use crate::params::{Partial, SourceSpec};
@@ -62,39 +61,22 @@ impl AudioSource for NoiseSource {
     }
 }
 
-/// Additive synthesis source: sums phase-continuous sinusoidal partials.
+/// Additive synthesis source: delegates to [`AdditiveSynth`] from `fourier-core`.
 struct AdditiveSource {
-    /// Per-partial state: `(phase_increment, amplitude, current_phase)`.
-    partials: Vec<(f32, f32, f32)>,
+    synth: AdditiveSynth,
 }
 
 impl AdditiveSource {
     fn new(partials: &[Partial], sample_rate: f32) -> Self {
-        let partials = partials
-            .iter()
-            .map(|p| (TAU * p.frequency / sample_rate, p.amplitude, p.phase))
-            .collect();
-        Self { partials }
+        Self {
+            synth: AdditiveSynth::new(partials, sample_rate),
+        }
     }
 }
 
 impl AudioSource for AdditiveSource {
     fn generate(&mut self, output: &mut [f32]) {
-        // Zero the buffer first — we accumulate across partials.
-        for s in output.iter_mut() {
-            *s = 0.0;
-        }
-
-        for (phase_inc, amp, phase) in &mut self.partials {
-            for s in output.iter_mut() {
-                *s += *amp * phase.sin();
-                *phase += *phase_inc;
-                // Wrap per-sample to prevent precision loss at high frequencies.
-                if *phase >= TAU {
-                    *phase -= TAU;
-                }
-            }
-        }
+        self.synth.generate(output);
     }
 }
 

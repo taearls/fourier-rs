@@ -8,13 +8,13 @@
 
 ## Open Issues Summary
 
-**8 open issues** across 7 phases (21 completed)
+**7 open issues** across 7 phases (22 completed)
 
 | Priority | Count | Issues |
 |----------|-------|--------|
 | :red_circle: Critical | 0 | &mdash; |
 | :yellow_circle: High | 0 | &mdash; |
-| :green_circle: Medium | 5 | #4, #11, #12, #23, #24 |
+| :green_circle: Medium | 4 | #11, #12, #23, #24 |
 | :large_blue_circle: Low | 3 | #10, #27, #28 |
 
 ---
@@ -33,6 +33,7 @@ The following capabilities already exist in the codebase:
 - **FFI bindings** &mdash; `crates/ffi/`
 - **Oscillator** &mdash; Sine, Square, Sawtooth, Triangle waveforms in `crates/core/`
 - **Noise generators** &mdash; `NoiseGenerator` with White (xorshift64 PRNG) and Pink (Voss-McCartney, 16 rows) noise in `crates/core/`; engine's noise sources refactored to use `fourier-core::NoiseGenerator`
+- **Additive synthesis** &mdash; `AdditiveSynth` in `crates/core/` with `Partial` struct, per-partial phase tracking, `generate()` buffer-filling method, and `harmonic_series()` helper; `Partial` type owned by `fourier-core` and re-exported by `fourier-engine`; engine's `AdditiveSource` delegates to `AdditiveSynth`
 - **Engine source integration** &mdash; `SourceSpec` enum, `AudioSource` trait, oscillator/noise/additive sources in `crates/engine/`
 - **WAV file reading** &mdash; `crates/file-io/` with `AudioBuffer`, `load_wav()`, format normalization
 - **WAV file writing** &mdash; `save_wav()` with `WavFormat` enum (I16, I24, F32), sample conversion with clamping, roundtrip-verified
@@ -55,19 +56,19 @@ The following capabilities already exist in the codebase:
 
 > **Goal:** Enable the engine to produce sound, not just process mic input
 >
-> **Effort:** ~1 week &bull; **Status:** In progress
+> **Effort:** ~1 week &bull; **Status:** :white_check_mark: Complete
 
 | # | Title | Priority | Effort | Dependencies |
 |---|-------|----------|--------|--------------|
 | #2 | ~~Add oscillator module with standard waveforms~~ | :white_check_mark: Done | ~1 day | &mdash; |
 | #3 | ~~Add noise generators (white, pink)~~ | :white_check_mark: Done | ~1 day | &mdash; |
-| #4 | Add additive synthesis module | :green_circle: Medium | ~1 day | #2 |
+| #4 | ~~Add additive synthesis module~~ | :white_check_mark: Done | ~1 day | ~~#2~~ |
 | #5 | ~~Integrate sound generation into engine as audio source~~ | :white_check_mark: Done | ~2 days | #2 |
 
 **Key deliverables:**
 - `Oscillator` with Sine, Square, Sawtooth, Triangle waveforms
 - ~~`NoiseGenerator` with White and Pink noise (Voss-McCartney)~~ :white_check_mark:
-- `AdditiveSynth` with per-partial control
+- ~~`AdditiveSynth` with per-partial control~~ :white_check_mark:
 - `SourceSpec` enum and `ParamMessage::SetSource` in engine
 
 ---
@@ -273,7 +274,7 @@ These can proceed independently alongside the critical path:
 | ~~5~~ | ~~#6 WAV reading~~ | ~~Unblocks file playback~~ :white_check_mark: |
 | ~~6~~ | ~~#7 WAV writing~~ | ~~Small addition to #6~~ :white_check_mark: |
 | ~~7~~ | ~~#9 Parametric EQ~~ | ~~Key DSP feature~~ :white_check_mark: |
-| 8 | #4 Additive synthesis | Depends on #2, enriches sources |
+| ~~8~~ | ~~#4 Additive synthesis~~ | ~~Depends on #2, enriches sources~~ :white_check_mark: |
 
 ### Batch 3: App Shell (Week 3)
 | Order | Issue | Rationale |
@@ -322,14 +323,14 @@ These can proceed independently alongside the critical path:
 
 | Phase | Total | Critical | High | Medium | Low | Done |
 |-------|-------|----------|------|--------|-----|------|
-| 1 &mdash; Sound Gen | 4 | 0 | 0 | 1 | 0 | 3 |
+| 1 &mdash; Sound Gen | 4 | 0 | 0 | 0 | 0 | 4 |
 | 2 &mdash; File I/O | 3 | 0 | 0 | 0 | 0 | 3 |
 | 3 &mdash; DSP | 4 | 0 | 0 | 2 | 1 | 1 |
 | 4 &mdash; Tauri | 4 | 0 | 0 | 0 | 0 | 4 |
 | 5 &mdash; UI | 5 | 0 | 0 | 0 | 0 | 5 |
 | 6 &mdash; Workflow | 3 | 0 | 0 | 2 | 0 | 1 |
 | 7 &mdash; Polish/Web | 6 | 0 | 0 | 0 | 2 | 4 |
-| **Total** | **29** | **0** | **0** | **5** | **3** | **21** |
+| **Total** | **29** | **0** | **0** | **4** | **3** | **22** |
 
 ---
 
@@ -350,6 +351,7 @@ These can proceed independently alongside the critical path:
 ## Changelog
 
 ### 2026-02-11
+- **Completed #4** (additive synthesis module) &mdash; created `crates/core/src/additive.rs` with `Partial` struct (`frequency`, `amplitude`, `phase` fields, serde `Serialize`/`Deserialize`), `AdditiveSynth` struct with `Vec<PartialState>` runtime state and `sample_rate`, `generate(&mut self, output: &mut [f32])` method that sums sine wave partials with per-partial phase tracking (wraps at 2&pi; to prevent precision loss, continuous across calls), `harmonic_series(fundamental, num_harmonics)` helper generating partials at f, 2f, 3f, &hellip; with 1/n amplitude rolloff; `num_partials()` and `sample_rate()` getters; re-exported `Partial`, `AdditiveSynth`, `harmonic_series` from `fourier-core` crate root; moved `Partial` ownership from `fourier-engine` params to `fourier-core` additive module &mdash; engine re-exports via `pub use fourier_core::Partial`; refactored engine `AdditiveSource` to delegate to `fourier_core::AdditiveSynth` instead of inline implementation; re-exported `AdditiveSynth` from `fourier-engine` crate root; 19 new unit tests in `fourier-core`: single partial peak frequency, single partial matches sine oscillator, multiple partials have expected peaks, summing N partials produces correct output, harmonic series correct frequencies/amplitudes/zero harmonics/zero phase/spectral peaks, phase continuous across generate calls, phase continuous for multiple partials, empty partials silence, empty buffer no-op, zero amplitude silence, num_partials getter, sample_rate getter, Partial serde roundtrip, Vec&lt;Partial&gt; serde roundtrip; 2 doc tests (AdditiveSynth example, harmonic_series example); all 196 existing tests pass; completes Phase 1 (Sound Generation) with all 4 issues done
 - **Completed #51** (review and optimize CI workflow) &mdash; removed nightly Rust toolchain from the CI matrix for build, clippy, and test jobs; project pins Rust 1.93.0 via `rust-toolchain.toml` so nightly runs provided no meaningful signal while doubling CI cost; removed `needs: build` dependency from clippy and test jobs so all four main jobs (fmt, build, clippy, test) run in parallel; reduced CI from 8 jobs to 5 (fmt, build, clippy, test, deny); removed `fail-fast: false` and `continue-on-error` (no longer needed without matrix); kept `Swatinem/rust-cache@v2` for cargo build caching; deny job unchanged on ubuntu-latest; simplified job names (no toolchain suffix)
 - **Completed #3** (noise generators: white, pink) &mdash; created `crates/core/src/noise.rs` with `NoiseGenerator` struct and `NoiseType` enum (`White`, `Pink`); `NoiseGenerator::new(noise_type, amplitude, sample_rate)` constructor with `generate(&mut self, output: &mut [f32])` buffer-filling method; white noise via xorshift64 PRNG (deterministic, no external dependencies) mapping upper 24 bits to `[-1.0, +1.0)` float range; pink noise via Voss-McCartney algorithm with 16 octave rows, trailing-zeros scheduling for per-row update timing, normalization factor `1/(NUM_ROWS+1)`, and running-sum accumulator for O(1) per-sample generation; PRNG extracted to module-level `prng_next_u64`/`prng_next_f32` free functions to satisfy borrow checker when iterating pink rows; getter/setter methods (`set_amplitude`, `set_noise_type`, `amplitude()`, `noise_type()`, `sample_rate()`) with `const` where possible; serde `Serialize`/`Deserialize` on `NoiseType`; re-exported `NoiseGenerator` and `NoiseType` from `fourier-core` crate root; refactored `fourier-engine` to use `fourier_core::NoiseGenerator` instead of duplicating white/pink noise implementations &mdash; replaced `WhiteNoiseSource` and `PinkNoiseSource` structs in `crates/engine/src/source.rs` with unified `NoiseSource` wrapper delegating to `NoiseGenerator`; `NoiseType` in `crates/engine/src/params.rs` changed from local enum to `pub use fourier_core::NoiseType` re-export; 15 new unit tests in `fourier-core`: white noise energy, amplitude bounds, approximately flat spectrum (averaged over 32 FFT frames with octave band comparison), pink noise energy, amplitude bounds, approximately &minus;3dB/octave rolloff (averaged over 64 FFT frames across 4 octave pairs), pink more-low-than-high total energy, white-flatter-than-pink comparative spectral analysis, property getters, noise type switching, amplitude energy scaling (`0.25&sup2; = 0.0625` ratio verification), zero amplitude silence, empty buffer no-op, serde roundtrip, deterministic output; all 178 existing tests pass
 - **Completed #26** (GitHub Actions CI pipeline) &mdash; upgraded `.github/workflows/ci.yml` with stable + nightly Rust toolchain matrix; nightly jobs allowed to fail via `continue-on-error`; `dtolnay/rust-toolchain` action for explicit toolchain management; `Swatinem/rust-cache` for build caching on clippy, test, and build jobs; `fail-fast: false` ensures all matrix combinations run to completion; fmt job uses stable-only (formatting is toolchain-independent); all four required jobs (build, test, clippy, fmt) run on `macos-latest`; triggers on push to main and PRs; deny job unchanged on ubuntu-latest; CI badge already present in README.md
