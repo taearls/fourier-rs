@@ -1203,7 +1203,7 @@ mod tests {
 
         let peak_bin = find_peak_bin(&spectrum);
         let peak_freq = peak_bin as f32 * bin_width;
-        let expected = 440.0 * 2.0_f32.powf(-7.0 / 12.0); // ~293.66 Hz
+        let expected = 440.0 * (-7.0_f32 / 12.0).exp2(); // ~293.66 Hz
 
         assert!(
             (peak_freq - expected).abs() < bin_width * 2.0,
@@ -1244,7 +1244,7 @@ mod tests {
 
         let peak_bin = find_peak_bin(&spectrum);
         let peak_freq = peak_bin as f32 * bin_width;
-        let expected = 440.0 * 2.0_f32.powf(1.0 / 12.0); // ~466.16 Hz
+        let expected = 440.0 * (1.0_f32 / 12.0).exp2(); // ~466.16 Hz
 
         assert!(
             (peak_freq - expected).abs() < bin_width * 2.0,
@@ -1328,7 +1328,7 @@ mod tests {
 
         let peak_bin = find_peak_bin(&spectrum);
         let peak_freq = peak_bin as f32 * bin_width;
-        let expected = 1000.0 * 2.0_f32.powf(-3.5 / 12.0);
+        let expected = 1000.0 * (-3.5_f32 / 12.0).exp2();
 
         assert!(
             (peak_freq - expected).abs() < bin_width * 2.0,
