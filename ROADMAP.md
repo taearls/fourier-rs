@@ -8,13 +8,13 @@
 
 ## Open Issues Summary
 
-**11 open issues** across 7 phases (17 completed)
+**10 open issues** across 7 phases (18 completed)
 
 | Priority | Count | Issues |
 |----------|-------|--------|
 | :red_circle: Critical | 0 | &mdash; |
 | :yellow_circle: High | 1 | #26 |
-| :green_circle: Medium | 7 | #3, #4, #11, #12, #21, #23, #24 |
+| :green_circle: Medium | 6 | #3, #4, #11, #12, #23, #24 |
 | :large_blue_circle: Low | 3 | #10, #27, #28 |
 
 ---
@@ -46,6 +46,7 @@ The following capabilities already exist in the codebase:
 - **Transform panel** &mdash; `<TransformPanel />` SolidJS component with transform type selector (Identity, LowPass, HighPass, BandPass, Gain, ParametricEq); per-transform parameter controls (cutoff frequency, band range, gain factor); parametric EQ per-band controls (frequency, gain dB, Q, band type) with add/remove; transform chain mode with add/remove/reorder multiple transforms; all changes immediately sent to engine via `set_transform` Tauri command
 - **Waveform oscilloscope** &mdash; `WaveformSnapshot` struct with rolling time-domain sample buffer; `get_waveform` Tauri command with drain-to-latest polling; `<WaveformDisplay />` SolidJS component with WebGL rendering, zero-crossing trigger for stable display, amplitude axis (-1 to +1), time axis (ms), responsive resize; green oscilloscope color scheme; stacked layout with spectrum analyzer
 - **Error handling &amp; logging** &mdash; `thiserror`-based error enums (`CoreError`, `AudioIoError`, `EngineError`, `FileIoError`) across all crates; no `String` error types in public APIs; `tracing` instrumentation at engine lifecycle, parameter changes, and error paths; Tauri commands convert `EngineError` to user-friendly strings
+- **Tuner display** &mdash; `<TunerDisplay />` SolidJS component with peak frequency detection from spectral snapshots; frequency-to-note mapping (A4=440Hz equal temperament); note name with octave display (e.g. &ldquo;A4&rdquo;, &ldquo;C#5&rdquo;); cents deviation with color-coded indicator (green &le;5ct, yellow 5&ndash;20ct, red &gt;20ct); visual cents bar with centered reference marker; no-signal graceful fallback (&ldquo;--&rdquo;); `tuner-utils.ts` with `getTunerReading()`, MIDI-based pitch math, and `TunerReading` interface
 
 ---
 
@@ -135,7 +136,7 @@ The following capabilities already exist in the codebase:
 
 > **Goal:** Visual interface for spectrum analysis, waveform display, and controls
 >
-> **Effort:** ~3 weeks &bull; **Status:** In progress
+> **Effort:** ~3 weeks &bull; **Status:** :white_check_mark: Complete
 
 | # | Title | Priority | Effort | Dependencies |
 |---|-------|----------|--------|--------------|
@@ -143,14 +144,14 @@ The following capabilities already exist in the codebase:
 | #18 | ~~Build waveform/oscilloscope display~~ | :white_check_mark: Done | ~2 days | ~~#14~~, ~~#15~~ |
 | #19 | ~~Build transport and source control panel~~ | :white_check_mark: Done | ~2 days | ~~#14~~, ~~#16~~ |
 | #20 | ~~Build transform/filter control panel~~ | :white_check_mark: Done | ~2 days | ~~#9~~, ~~#14~~ |
-| #21 | Build peak frequency and note detection display | :green_circle: Medium | ~1 day | #15 |
+| #21 | ~~Build peak frequency and note detection display~~ | :white_check_mark: Done | ~1 day | ~~#15~~ |
 
 **Key deliverables:**
 - ~~`<SpectrumAnalyzer />` &mdash; WebGL, log freq axis, dB magnitude, peak markers~~ :white_check_mark:
 - ~~`<WaveformDisplay />` &mdash; WebGL oscilloscope with zero-crossing trigger~~ :white_check_mark:
 - ~~`<ControlPanel />` &mdash; source selector, oscillator/noise/file controls, gain~~ :white_check_mark:
 - ~~`<TransformPanel />` &mdash; EQ bands, pitch shift, freeze toggle, chain management~~ :white_check_mark:
-- `<TunerDisplay />` &mdash; peak frequency, note name, cents deviation
+- ~~`<TunerDisplay />` &mdash; peak frequency, note name, cents deviation~~ :white_check_mark:
 
 ---
 
@@ -242,6 +243,7 @@ App shell and engine commands done. Moving to streaming and source commands:
 13. ~~**#7** &mdash; Add WAV file writing/export~~ `:white_check_mark:`
 14. ~~**#25** &mdash; Add error handling and logging~~ `:white_check_mark:`
 15. ~~**#18** &mdash; Build waveform/oscilloscope display~~ `:white_check_mark:`
+16. ~~**#21** &mdash; Build peak frequency and note detection display~~ `:white_check_mark:`
 
 ### PARALLEL TRACKS
 
@@ -293,7 +295,7 @@ These can proceed independently alongside the critical path:
 | ~~17~~ | ~~#19 Transport/source control panel~~ | ~~Core user interaction~~ :white_check_mark: |
 | ~~18~~ | ~~#18 Waveform display~~ | ~~Second visualization~~ :white_check_mark: |
 | ~~19~~ | ~~#20 Transform control panel~~ | ~~Effect parameter UI~~ :white_check_mark: |
-| 20 | #21 Note detection display | Tuner feature |
+| ~~20~~ | ~~#21 Note detection display~~ | ~~Tuner feature~~ :white_check_mark: |
 
 ### Batch 6: Workflow + DSP Extras (Week 7)
 | Order | Issue | Rationale |
@@ -321,10 +323,10 @@ These can proceed independently alongside the critical path:
 | 2 &mdash; File I/O | 3 | 0 | 0 | 0 | 0 | 3 |
 | 3 &mdash; DSP | 4 | 0 | 0 | 2 | 1 | 1 |
 | 4 &mdash; Tauri | 4 | 0 | 0 | 0 | 0 | 4 |
-| 5 &mdash; UI | 5 | 0 | 0 | 1 | 0 | 4 |
+| 5 &mdash; UI | 5 | 0 | 0 | 0 | 0 | 5 |
 | 6 &mdash; Workflow | 3 | 0 | 0 | 2 | 0 | 1 |
 | 7 &mdash; Polish/Web | 5 | 0 | 1 | 0 | 2 | 2 |
-| **Total** | **28** | **0** | **1** | **7** | **3** | **17** |
+| **Total** | **28** | **0** | **1** | **6** | **3** | **18** |
 
 ---
 
@@ -345,6 +347,7 @@ These can proceed independently alongside the critical path:
 ## Changelog
 
 ### 2026-02-11
+- **Completed #21** (peak frequency and note detection display) &mdash; created `<TunerDisplay />` SolidJS component in `app/src/TunerDisplay.tsx` displaying detected pitch as a musical note with tuning accuracy; receives `SpectralSnapshot` via props and extracts strongest peak within 20Hz&ndash;10kHz above -60dB threshold; `tuner-utils.ts` utility module with `getTunerReading()` function performing frequency-to-MIDI conversion (`midi = 69 + 12 * log2(freq / 440)`), note name mapping via chromatic lookup table, octave calculation, and cents deviation (`(fractionalMidi - nearestMidi) * 100`); displays note label (e.g. &ldquo;A4&rdquo;, &ldquo;C#5&rdquo;), frequency in Hz, and cents deviation with color-coded visual indicator; color coding: green (#22c55e) within &pm;5 cents (in tune), yellow (#eab308) &pm;5&ndash;20 cents (close), red (#ef4444) beyond &pm;20 cents (out of tune); horizontal cents bar with centered reference marker, circular indicator sliding left/right proportional to deviation (&pm;50 cent range), smooth CSS transitions; no-signal graceful fallback showing &ldquo;--&rdquo; for note, frequency, and cents when no valid peak detected; integrated into `App.tsx` viz-stack below waveform display; styled in `styles.css` matching dark theme with `var(--border)` separator, `var(--fg)` text, and tabular-nums for stable numeric readout; `TunerReading` and `TunerColor` TypeScript types exported for potential reuse; all 164 existing tests pass; completes Phase 5 (UI Components) with all 5 issues done
 - **Completed #18** (waveform/oscilloscope display) &mdash; added `WaveformSnapshot` struct in `crates/engine/src/processor.rs` with `samples: Vec<f32>`, `sample_rate`, `fft_size`, `timestamp_ms`; rolling waveform buffer (4&times;fft_size capacity) in the processing loop captures time-domain output samples pre-gain for visualization; `waveform_buf_push()` and `build_waveform_snapshot()` helpers extract chronologically-ordered samples from the circular buffer; separate bounded channel (capacity 4) with drain-to-latest `Engine::latest_waveform()` method; `get_waveform` Tauri command in `app/src-tauri/src/lib.rs` mirrors `get_spectrum` pattern; `WaveformSnapshot` TypeScript interface and `getWaveform()` wrapper in `app/src/bindings.ts`; `<WaveformDisplay />` SolidJS component in `app/src/WaveformDisplay.tsx` with WebGL rendering via `drawWaveform()` method (green oscilloscope color #22c55e), zero-crossing trigger via `findRisingZeroCrossing()` for stable periodic signal display, amplitude axis (-1 to +1) with center-line emphasis, time axis (ms) with adaptive tick intervals, responsive resize via ResizeObserver, 2D canvas overlay for axis labels and grid; stacked layout with spectrum analyzer above waveform below in `.viz-stack` flex column; waveform display window capped at 50ms for readable oscilloscope view; utility functions in `app/src/waveform-utils.ts` for vertex building, zero-crossing detection, and axis formatting; `App.tsx` polls both `getSpectrum()` and `getWaveform()` in parallel via `Promise.all` for synchronized 60fps updates; 2 new engine tests (waveform snapshot from live input, waveform from oscillator source); all 164 tests pass; extends Phase 5 (UI Components)
 
 ### 2026-02-10

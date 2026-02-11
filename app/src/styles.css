@@ -154,6 +154,88 @@ body {
   gap: 0.5rem;
 }
 
+/* ---------- Tuner display ---------- */
+
+.tuner-display {
+  flex: 0 0 auto;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  padding: 12px 20px;
+  border-top: 1px solid var(--border);
+  background: var(--bg);
+}
+
+.tuner-note {
+  font-size: 2.4rem;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  color: var(--fg);
+  line-height: 1.1;
+  min-width: 4ch;
+  text-align: center;
+}
+
+.tuner-freq {
+  font-size: 0.8rem;
+  color: rgba(255, 255, 255, 0.45);
+  font-variant-numeric: tabular-nums;
+}
+
+.tuner-cents-bar {
+  width: 100%;
+  max-width: 320px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin-top: 4px;
+}
+
+.tuner-cents-track {
+  position: relative;
+  height: 6px;
+  background: rgba(255, 255, 255, 0.08);
+  border-radius: 3px;
+  overflow: visible;
+}
+
+.tuner-cents-center {
+  position: absolute;
+  left: 50%;
+  top: -2px;
+  width: 2px;
+  height: 10px;
+  background: rgba(255, 255, 255, 0.25);
+  transform: translateX(-50%);
+  border-radius: 1px;
+}
+
+.tuner-cents-indicator {
+  position: absolute;
+  top: -3px;
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  transform: translateX(-50%);
+  transition: left 0.08s ease-out, background-color 0.15s ease;
+}
+
+.tuner-cents-labels {
+  display: flex;
+  justify-content: space-between;
+  font-size: 0.65rem;
+  color: rgba(255, 255, 255, 0.25);
+  font-variant-numeric: tabular-nums;
+}
+
+.tuner-cents-value {
+  font-weight: 600;
+  font-size: 0.75rem;
+  transition: color 0.15s ease;
+}
+
 /* ---------- Control panel ---------- */
 
 .control-panel {
