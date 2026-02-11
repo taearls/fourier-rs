@@ -20,13 +20,32 @@ jobs:
           components: rustfmt
       - run: cargo fmt --all -- --check
 
-  clippy:
-    name: Clippy (${{ matrix.toolchain }})
+  build:
+    name: Build (${{ matrix.toolchain }})
     runs-on: macos-latest
     strategy:
       fail-fast: false
       matrix:
-        toolchain: [stable, nightly]
+        toolchain: ['1.93.0', nightly]
+    continue-on-error: ${{ matrix.toolchain == 'nightly' }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@master
+        with:
+          toolchain: ${{ matrix.toolchain }}
+      - uses: Swatinem/rust-cache@v2
+        with:
+          key: ${{ matrix.toolchain }}
+      - run: cargo build --workspace
+
+  clippy:
+    name: Clippy (${{ matrix.toolchain }})
+    needs: build
+    runs-on: macos-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        toolchain: ['1.93.0', nightly]
     continue-on-error: ${{ matrix.toolchain == 'nightly' }}
     steps:
       - uses: actions/checkout@v4
@@ -41,11 +60,12 @@ jobs:
 
   test:
     name: Tests (${{ matrix.toolchain }})
+    needs: build
     runs-on: macos-latest
     strategy:
       fail-fast: false
       matrix:
-        toolchain: [stable, nightly]
+        toolchain: ['1.93.0', nightly]
     continue-on-error: ${{ matrix.toolchain == 'nightly' }}
     steps:
       - uses: actions/checkout@v4
@@ -56,24 +76,6 @@ jobs:
         with:
           key: ${{ matrix.toolchain }}
       - run: cargo test --workspace
-
-  build:
-    name: Build (${{ matrix.toolchain }})
-    runs-on: macos-latest
-    strategy:
-      fail-fast: false
-      matrix:
-        toolchain: [stable, nightly]
-    continue-on-error: ${{ matrix.toolchain == 'nightly' }}
-    steps:
-      - uses: actions/checkout@v4
-      - uses: dtolnay/rust-toolchain@master
-        with:
-          toolchain: ${{ matrix.toolchain }}
-      - uses: Swatinem/rust-cache@v2
-        with:
-          key: ${{ matrix.toolchain }}
-      - run: cargo build --workspace
 
   deny:
     name: Dependency audit
