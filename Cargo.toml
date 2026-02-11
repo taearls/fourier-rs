@@ -47,6 +47,9 @@ thiserror = "2"
 tracing = "0.1"
 tracing-subscriber = { version = "0.3", features = ["env-filter"] }
 
+# Filesystem
+dirs = "6"
+
 # Tauri
 tauri = { version = "2", features = [] }
 tauri-build = { version = "2", features = [] }

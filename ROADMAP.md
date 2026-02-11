@@ -8,13 +8,13 @@
 
 ## Open Issues Summary
 
-**5 open issues** across 7 phases (24 completed)
+**4 open issues** across 7 phases (25 completed)
 
 | Priority | Count | Issues |
 |----------|-------|--------|
 | :red_circle: Critical | 0 | &mdash; |
 | :yellow_circle: High | 0 | &mdash; |
-| :green_circle: Medium | 2 | #23, #24 |
+| :green_circle: Medium | 1 | #24 |
 | :large_blue_circle: Low | 3 | #10, #27, #28 |
 
 ---
@@ -50,6 +50,7 @@ The following capabilities already exist in the codebase:
 - **Transform panel** &mdash; `<TransformPanel />` SolidJS component with transform type selector (Identity, LowPass, HighPass, BandPass, Gain, ParametricEq); per-transform parameter controls (cutoff frequency, band range, gain factor); parametric EQ per-band controls (frequency, gain dB, Q, band type) with add/remove; transform chain mode with add/remove/reorder multiple transforms; all changes immediately sent to engine via `set_transform` Tauri command
 - **Waveform oscilloscope** &mdash; `WaveformSnapshot` struct with rolling time-domain sample buffer; `get_waveform` Tauri command with drain-to-latest polling; `<WaveformDisplay />` SolidJS component with WebGL rendering, zero-crossing trigger for stable display, amplitude axis (-1 to +1), time axis (ms), responsive resize; green oscilloscope color scheme; stacked layout with spectrum analyzer
 - **Error handling &amp; logging** &mdash; `thiserror`-based error enums (`CoreError`, `AudioIoError`, `EngineError`, `FileIoError`) across all crates; no `String` error types in public APIs; `tracing` instrumentation at engine lifecycle, parameter changes, and error paths; Tauri commands convert `EngineError` to user-friendly strings
+- **Preset save/load** &mdash; `Preset` struct with serde support in `crates/engine/src/preset.rs`; `save_preset`, `load_preset`, `list_presets`, `delete_preset` Tauri commands; JSON file storage in user data directory (`~/Library/Application Support/fourier-rs/presets/`); 5 factory presets (Clean Sine, Low-Pass Voice, Octave Up, Warm Pad, Pink Noise Ambience); factory preset protection (cannot overwrite/delete); `<PresetPanel />` SolidJS component with preset dropdown, load/save/delete controls, name input with Enter/Escape keyboard handling
 - **Tuner display** &mdash; `<TunerDisplay />` SolidJS component with peak frequency detection from spectral snapshots; frequency-to-note mapping (A4=440Hz equal temperament); note name with octave display (e.g. &ldquo;A4&rdquo;, &ldquo;C#5&rdquo;); cents deviation with color-coded indicator (green &le;5ct, yellow 5&ndash;20ct, red &gt;20ct); visual cents bar with centered reference marker; no-signal graceful fallback (&ldquo;--&rdquo;); `tuner-utils.ts` with `getTunerReading()`, MIDI-based pitch math, and `TunerReading` interface
 
 ---
@@ -168,12 +169,12 @@ The following capabilities already exist in the codebase:
 | # | Title | Priority | Effort | Dependencies |
 |---|-------|----------|--------|--------------|
 | #22 | ~~Add serde serialization to TransformSpec and SourceSpec~~ | :white_check_mark: Done | ~1 day | &mdash; |
-| #23 | Add preset save/load system | :green_circle: Medium | ~2 days | #22, #14 |
+| #23 | ~~Add preset save/load system~~ | :white_check_mark: Done | ~2 days | ~~#22~~, ~~#14~~ |
 | #24 | Add audio export (render engine output to WAV) | :green_circle: Medium | ~2 days | #7, #8, #14 |
 
 **Key deliverables:**
-- Serde `Serialize`/`Deserialize` on all param types
-- `Preset` struct with save/load to JSON, factory presets
+- ~~Serde `Serialize`/`Deserialize` on all param types~~ :white_check_mark:
+- ~~`Preset` struct with save/load to JSON, factory presets~~ :white_check_mark:
 - `export_audio` command with offline rendering and progress reporting
 
 ---
@@ -305,7 +306,7 @@ These can proceed independently alongside the critical path:
 ### Batch 6: Workflow + DSP Extras (Week 7)
 | Order | Issue | Rationale |
 |-------|-------|-----------|
-| 21 | #23 Preset system | UX polish |
+| ~~21~~ | ~~#23 Preset system~~ | ~~UX polish~~ :white_check_mark: |
 | 22 | #24 Audio export | Render to file |
 | ~~23~~ | ~~#11 Spectral freeze~~ | ~~Creative effect~~ :white_check_mark: |
 | ~~24~~ | ~~#12 Pitch shifting~~ | ~~Creative effect~~ :white_check_mark: |
@@ -330,9 +331,9 @@ These can proceed independently alongside the critical path:
 | 3 &mdash; DSP | 4 | 0 | 0 | 0 | 1 | 3 |
 | 4 &mdash; Tauri | 4 | 0 | 0 | 0 | 0 | 4 |
 | 5 &mdash; UI | 5 | 0 | 0 | 0 | 0 | 5 |
-| 6 &mdash; Workflow | 3 | 0 | 0 | 2 | 0 | 1 |
+| 6 &mdash; Workflow | 3 | 0 | 0 | 1 | 0 | 2 |
 | 7 &mdash; Polish/Web | 6 | 0 | 0 | 0 | 2 | 4 |
-| **Total** | **29** | **0** | **0** | **2** | **3** | **24** |
+| **Total** | **29** | **0** | **0** | **1** | **3** | **25** |
 
 ---
 
@@ -353,6 +354,7 @@ These can proceed independently alongside the critical path:
 ## Changelog
 
 ### 2026-02-11
+- **Completed #23** (preset save/load system) &mdash; created `crates/engine/src/preset.rs` with `Preset` struct (`name: String`, `source: SourceSpec`, `transform: TransformSpec`, `gain: f32`) with full serde `Serialize`/`Deserialize` support; `PresetInfo` struct for listing (`name`, `is_factory`); `factory_presets()` function returning 5 built-in presets: "Clean Sine" (440Hz sine, identity transform, 0.75 gain), "Low-Pass Voice" (live input, 2kHz low-pass, 0.8 gain), "Octave Up" (live input, +12 semitone pitch shift, 0.75 gain), "Warm Pad" (220Hz sawtooth, low-pass + EQ chain, 0.6 gain), "Pink Noise Ambience" (pink noise, 4kHz low-pass, 0.4 gain); re-exported `Preset`, `PresetInfo`, `factory_presets` from `fourier-engine` crate root; 4 Tauri commands in `app/src-tauri/src/lib.rs`: `save_preset(name, source, transform, gain)` serializes preset to JSON in user data directory (`~/Library/Application Support/fourier-rs/presets/`), `load_preset(name)` checks factory presets first then user directory, `list_presets()` returns factory + user presets sorted (factory first, then alphabetical), `delete_preset(name)` removes user preset files; factory preset protection (cannot overwrite or delete); filename sanitization for safe filesystem storage; `PresetInfo` and `Preset` TypeScript interfaces in `app/src/bindings.ts` with `savePreset()`, `loadPreset()`, `listPresets()`, `deletePreset()` command wrappers; `<PresetPanel />` SolidJS component in `app/src/PresetPanel.tsx` with preset dropdown (factory presets marked with star), load button, save dialog with name input (Enter to save, Escape to cancel), delete button for user presets only; integrated into `<ControlPanel />` between source controls and transform panel; `TransformPanel` extended with `onSpecChange` callback and `presetTransform` accessor for bidirectional preset communication; preset loading applies source, transform, and gain to both UI state and running engine; 7 new unit tests in `fourier-engine`: preset roundtrip (identity, oscillator+chain, noise), factory presets valid, factory preset names unique, preset info roundtrip, JSON human-readable; added `dirs` and `serde_json` dependencies to `fourier-app`; all 248 tests pass
 - **Completed #12** (pitch shifting via spectral bin rotation) &mdash; created `PitchShift` struct implementing `SpectralTransform` in `crates/core/src/transform.rs`; remaps spectral bins using `source_bin = output_bin / 2^(semitones/12)` formula; linear interpolation of magnitude for fractional bin positions; phase taken from nearest source bin; DC bin preserved unchanged; zero-shift early-return optimization (identity); `shift_semitones: f32` parameter (+12 = up one octave, -12 = down one octave, -7 = down a fifth); `TransformSpec::PitchShift { semitones: f32 }` variant in `crates/engine/src/params.rs` with serde support; wired into `build_transform()` in `processor.rs`; re-exported `PitchShift` from `fourier-core` and `fourier-engine` crate roots; TypeScript `PitchShift` variant added to `TransformSpec` type in `app/src/bindings.ts`; `<TransformPanel />` updated with "Pitch Shift" option and semitones slider (-24 to +24 st, 0.1 step) in both single and chain modes; 10 new unit tests in `fourier-core`: up octave doubles frequency, down octave halves, down fifth, zero is identity, fractional uses interpolation, preserves DC bin, large shift clears high bins, name, empty spectrum no panic, negative fractional; 4 new serde roundtrip tests in `fourier-engine`: positive/negative semitones, in-chain, param message; 2 engine integration tests: pitch shift produces output with oscillator source, rapid pitch shift switching does not panic; all 241 tests pass
 - **Completed #11** (spectral freeze/hold effect) &mdash; created `SpectralFreeze` struct implementing `SpectralTransform` in `crates/core/src/transform.rs`; when activated (`frozen = true`), captures current spectral frame magnitudes and phases; while frozen, outputs captured spectrum instead of live input; smooth crossfade on toggle (~75ms duration) via linear interpolation in complex domain between live and frozen spectra; `crossfade_pos` ramps from 0.0 (fully live) to 1.0 (fully frozen) at a rate computed from `sample_rate / hop_size`; captured data released after unfreezing completes; `set_frozen(bool)` and `is_frozen()` accessors; `TransformSpec::SpectralFreeze { frozen: bool }` variant in `crates/engine/src/params.rs` with serde support; wired into `build_transform()` in `processor.rs` passing `sample_rate` and `hop_size` for crossfade timing; re-exported `SpectralFreeze` from `fourier-core` and `fourier-engine` crate roots; 8 new unit tests in `fourier-core`: freeze captures spectrum on activation, frozen output is stable, unfrozen passes through, crossfade is smooth (monotonically increasing), toggle off crossfades back (monotonically decreasing), getters, name, empty spectrum no panic; 4 new serde roundtrip tests in `fourier-engine`: frozen/unfrozen variants, in-chain, param message; 2 engine integration tests: freeze produces output with oscillator source, rapid freeze toggle does not panic; all 225 tests pass
 - **Completed #4** (additive synthesis module) &mdash; created `crates/core/src/additive.rs` with `Partial` struct (`frequency`, `amplitude`, `phase` fields, serde `Serialize`/`Deserialize`), `AdditiveSynth` struct with `Vec<PartialState>` runtime state and `sample_rate`, `generate(&mut self, output: &mut [f32])` method that sums sine wave partials with per-partial phase tracking (wraps at 2&pi; to prevent precision loss, continuous across calls), `harmonic_series(fundamental, num_harmonics)` helper generating partials at f, 2f, 3f, &hellip; with 1/n amplitude rolloff; `num_partials()` and `sample_rate()` getters; re-exported `Partial`, `AdditiveSynth`, `harmonic_series` from `fourier-core` crate root; moved `Partial` ownership from `fourier-engine` params to `fourier-core` additive module &mdash; engine re-exports via `pub use fourier_core::Partial`; refactored engine `AdditiveSource` to delegate to `fourier_core::AdditiveSynth` instead of inline implementation; re-exported `AdditiveSynth` from `fourier-engine` crate root; 19 new unit tests in `fourier-core`: single partial peak frequency, single partial matches sine oscillator, multiple partials have expected peaks, summing N partials produces correct output, harmonic series correct frequencies/amplitudes/zero harmonics/zero phase/spectral peaks, phase continuous across generate calls, phase continuous for multiple partials, empty partials silence, empty buffer no-op, zero amplitude silence, num_partials getter, sample_rate getter, Partial serde roundtrip, Vec&lt;Partial&gt; serde roundtrip; 2 doc tests (AdditiveSynth example, harmonic_series example); all 196 existing tests pass; completes Phase 1 (Sound Generation) with all 4 issues done

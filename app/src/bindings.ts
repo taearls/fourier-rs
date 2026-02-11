@@ -101,6 +101,24 @@ export interface WaveformSnapshot {
 }
 
 // ---------------------------------------------------------------------------
+// Preset types (mirrors `Preset` / `PresetInfo` in fourier-engine)
+// ---------------------------------------------------------------------------
+
+/** A complete engine configuration that can be saved and loaded. */
+export interface Preset {
+  name: string;
+  source: SourceSpec;
+  transform: TransformSpec;
+  gain: number;
+}
+
+/** Summary info about a preset for listing. */
+export interface PresetInfo {
+  name: string;
+  is_factory: boolean;
+}
+
+// ---------------------------------------------------------------------------
 // Command wrappers
 // ---------------------------------------------------------------------------
 
@@ -232,4 +250,50 @@ export function setSourceFile(
  */
 export function seekSource(position: number): Promise<void> {
   return invoke("seek_source", { position });
+}
+
+// ---------------------------------------------------------------------------
+// Preset commands
+// ---------------------------------------------------------------------------
+
+/**
+ * Save the current engine configuration as a named preset.
+ *
+ * @param name - Preset name (used as filename).
+ * @param source - Audio source configuration.
+ * @param transform - Spectral transform chain.
+ * @param gain - Master output gain.
+ */
+export function savePreset(
+  name: string,
+  source: SourceSpec,
+  transform: TransformSpec,
+  gain: number,
+): Promise<void> {
+  return invoke("save_preset", { name, source, transform, gain });
+}
+
+/**
+ * Load a preset by name. Returns the full preset configuration.
+ *
+ * Checks factory presets first, then user presets.
+ *
+ * @param name - The preset name to load.
+ */
+export function loadPreset(name: string): Promise<Preset> {
+  return invoke("load_preset", { name });
+}
+
+/** List all available presets (factory + user). */
+export function listPresets(): Promise<PresetInfo[]> {
+  return invoke("list_presets");
+}
+
+/**
+ * Delete a user preset by name. Factory presets cannot be deleted.
+ *
+ * @param name - The preset name to delete.
+ */
+export function deletePreset(name: string): Promise<void> {
+  return invoke("delete_preset", { name });
 }
