@@ -9,10 +9,15 @@ import {
   setSourceNoise,
   setSourceFile,
   seekSource,
+  setTransform,
   type WaveformType,
   type NoiseType,
+  type SourceSpec,
+  type TransformSpec,
+  type Preset,
 } from "./bindings";
 import TransformPanel from "./TransformPanel";
+import PresetPanel from "./PresetPanel";
 
 // ---------------------------------------------------------------------------
 // Types
@@ -49,6 +54,10 @@ const ControlPanel: Component = () => {
   const [filePath, setFilePath] = createSignal<string | null>(null);
   const [looping, setLooping] = createSignal(true);
   const [seekPos, setSeekPos] = createSignal(0);
+
+  // Transform tracking (for preset save)
+  const [currentTransform, setCurrentTransform] = createSignal<TransformSpec>({ type: "Identity" });
+  const [presetTransform, setPresetTransform] = createSignal<TransformSpec | null>(null);
 
   // -----------------------------------------------------------------------
   // Helpers
@@ -208,6 +217,73 @@ const ControlPanel: Component = () => {
   }
 
   // -----------------------------------------------------------------------
+  // Preset helpers
+  // -----------------------------------------------------------------------
+
+  function buildCurrentSource(): SourceSpec {
+    const s = source();
+    switch (s) {
+      case "live":
+        return { type: "LiveInput" };
+      case "oscillator":
+        return { type: "Oscillator", waveform: waveform(), frequency: frequency(), amplitude: 1.0 };
+      case "noise":
+        return { type: "Noise", noise_type: noiseType(), amplitude: 1.0 };
+      case "file":
+        return { type: "AudioBuffer", looping: looping() };
+      default:
+        return { type: "LiveInput" };
+    }
+  }
+
+  async function handlePresetLoad(preset: Preset): Promise<void> {
+    await withError(async () => {
+      // Apply gain.
+      setGainValue(preset.gain);
+      if (running()) {
+        await setGain(preset.gain);
+      }
+
+      // Apply source.
+      const src = preset.source;
+      switch (src.type) {
+        case "LiveInput":
+          setSource("live");
+          if (running()) await setSourceLiveInput();
+          break;
+        case "Oscillator":
+          setSource("oscillator");
+          setWaveform(src.waveform as WaveformType);
+          setFrequency(src.frequency);
+          if (running()) await setSourceOscillator(src.waveform as WaveformType, src.frequency);
+          break;
+        case "Noise":
+          setSource("noise");
+          setNoiseType(src.noise_type as NoiseType);
+          if (running()) await setSourceNoise(src.noise_type as NoiseType);
+          break;
+        case "AudioBuffer":
+          // AudioBuffer presets only restore looping flag; file must be re-selected.
+          setSource("file");
+          setLooping(src.looping);
+          break;
+        case "Additive":
+          // Additive source has no UI controls yet; fall back to live input.
+          setSource("live");
+          if (running()) await setSourceLiveInput();
+          break;
+      }
+
+      // Apply transform via the preset signal (TransformPanel will pick this up).
+      setPresetTransform(null); // Reset first to ensure reactivity.
+      setPresetTransform(preset.transform);
+      if (running()) {
+        await setTransform(preset.transform);
+      }
+    });
+  }
+
+  // -----------------------------------------------------------------------
   // Render
   // -----------------------------------------------------------------------
 
@@ -359,8 +435,23 @@ const ControlPanel: Component = () => {
       {/* Separator */}
       <div class="cp-separator" />
 
+      {/* Preset controls */}
+      <PresetPanel
+        onLoad={handlePresetLoad}
+        currentSource={buildCurrentSource}
+        currentTransform={currentTransform}
+        currentGain={gain}
+      />
+
+      {/* Separator */}
+      <div class="cp-separator" />
+
       {/* Transform controls */}
-      <TransformPanel running={running()} />
+      <TransformPanel
+        running={running()}
+        onSpecChange={setCurrentTransform}
+        presetTransform={presetTransform}
+      />
     </div>
   );
 };

@@ -8,6 +8,7 @@
 
 pub mod error;
 pub mod params;
+pub mod preset;
 pub mod processor;
 pub mod source;
 
@@ -16,5 +17,6 @@ pub use fourier_core::{
     AdditiveSynth, BandType, EqBand, NoiseGenerator, PitchShift, SpectralFreeze, WaveformType,
 };
 pub use params::{EngineParams, NoiseType, ParamMessage, Partial, SourceSpec, TransformSpec};
+pub use preset::{factory_presets, Preset, PresetInfo};
 pub use processor::{Engine, SpectralSnapshot, WaveformSnapshot};
 pub use source::{AudioBufferSource, AudioSource};

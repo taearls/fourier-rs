@@ -463,6 +463,77 @@ body {
   background: var(--border);
 }
 
+/* ---------- Preset panel ---------- */
+
+.preset-panel {
+  gap: 8px;
+}
+
+.preset-row {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+}
+
+.preset-select {
+  flex: 1;
+  min-width: 0;
+  font-family: inherit;
+  font-size: 0.75rem;
+  padding: 4px 6px;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  background: var(--bg);
+  color: var(--fg);
+  cursor: pointer;
+}
+
+.preset-select:focus {
+  outline: none;
+  border-color: var(--accent);
+}
+
+.preset-delete {
+  border-color: rgba(220, 38, 38, 0.4);
+  color: #fca5a5;
+  font-size: 0.7rem;
+}
+
+.preset-delete:hover {
+  border-color: #dc2626;
+  background: rgba(220, 38, 38, 0.15);
+}
+
+.preset-save {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.preset-name-input {
+  font-family: inherit;
+  font-size: 0.75rem;
+  padding: 5px 8px;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  background: var(--bg);
+  color: var(--fg);
+  outline: none;
+}
+
+.preset-name-input:focus {
+  border-color: var(--accent);
+}
+
+.preset-name-input::placeholder {
+  color: rgba(255, 255, 255, 0.25);
+}
+
+.preset-save-actions {
+  display: flex;
+  gap: 6px;
+}
+
 /* ---------- Transform panel ---------- */
 
 .transform-panel {

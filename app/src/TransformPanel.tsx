@@ -1,4 +1,4 @@
-import { createSignal, For, Show, type Component, type JSX } from "solid-js";
+import { createEffect, createSignal, For, Show, type Accessor, type Component, type JSX } from "solid-js";
 import {
   setTransform,
   type TransformSpec,
@@ -37,7 +37,11 @@ function defaultBand(): EqBand {
 // Component
 // ---------------------------------------------------------------------------
 
-const TransformPanel: Component<{ running: boolean }> = (props) => {
+const TransformPanel: Component<{
+  running: boolean;
+  onSpecChange?: (spec: TransformSpec) => void;
+  presetTransform?: Accessor<TransformSpec | null>;
+}> = (props) => {
   let nextChainId = 1;
   const [error, setError] = createSignal<string | null>(null);
 
@@ -178,11 +182,116 @@ const TransformPanel: Component<{ running: boolean }> = (props) => {
   // -----------------------------------------------------------------------
 
   async function applyTransform(): Promise<void> {
+    const spec = buildSpec();
+    props.onSpecChange?.(spec);
     if (!props.running) return;
     await withError(async () => {
-      await setTransform(buildSpec());
+      await setTransform(spec);
     });
   }
+
+  /** Apply a transform spec from a preset, updating internal state to match. */
+  function applyPresetSpec(spec: TransformSpec): void {
+    // Disable chain mode and set simple transform state from preset.
+    setChainEnabled(false);
+    setChain([]);
+
+    switch (spec.type) {
+      case "Identity":
+        setTransformType("Identity");
+        break;
+      case "LowPass":
+        setTransformType("LowPass");
+        setCutoffHz(spec.value.cutoff_hz);
+        break;
+      case "HighPass":
+        setTransformType("HighPass");
+        setCutoffHz(spec.value.cutoff_hz);
+        break;
+      case "BandPass":
+        setTransformType("BandPass");
+        setLowHz(spec.value.low_hz);
+        setHighHz(spec.value.high_hz);
+        break;
+      case "Gain":
+        setTransformType("Gain");
+        setGainFactor(spec.value.factor);
+        break;
+      case "ParametricEq":
+        setTransformType("ParametricEq");
+        setEqBands([...spec.value.bands]);
+        break;
+      case "PitchShift":
+        setTransformType("PitchShift");
+        setPitchSemitones(spec.value.semitones);
+        break;
+      case "Chain":
+        // Enable chain mode and populate entries.
+        setChainEnabled(true);
+        const entries: ChainEntry[] = [];
+        const newCutoffs: Record<number, number> = {};
+        const newLows: Record<number, number> = {};
+        const newHighs: Record<number, number> = {};
+        const newGains: Record<number, number> = {};
+        const newBands: Record<number, EqBand[]> = {};
+        const newPitch: Record<number, number> = {};
+
+        for (const item of spec.value) {
+          const id = nextChainId++;
+          let transformType: TransformType = "Identity";
+          switch (item.type) {
+            case "Identity": transformType = "Identity"; break;
+            case "LowPass":
+              transformType = "LowPass";
+              newCutoffs[id] = item.value.cutoff_hz;
+              break;
+            case "HighPass":
+              transformType = "HighPass";
+              newCutoffs[id] = item.value.cutoff_hz;
+              break;
+            case "BandPass":
+              transformType = "BandPass";
+              newLows[id] = item.value.low_hz;
+              newHighs[id] = item.value.high_hz;
+              break;
+            case "Gain":
+              transformType = "Gain";
+              newGains[id] = item.value.factor;
+              break;
+            case "ParametricEq":
+              transformType = "ParametricEq";
+              newBands[id] = [...item.value.bands];
+              break;
+            case "PitchShift":
+              transformType = "PitchShift";
+              newPitch[id] = item.value.semitones;
+              break;
+          }
+          entries.push({ id, transformType });
+        }
+
+        setChain(entries);
+        setChainCutoffs(newCutoffs);
+        setChainLows(newLows);
+        setChainHighs(newHighs);
+        setChainGains(newGains);
+        setChainEqBands(newBands);
+        setChainPitchSemitones(newPitch);
+        break;
+    }
+
+    // Notify parent and apply to engine.
+    const newSpec = buildSpec();
+    props.onSpecChange?.(newSpec);
+  }
+
+  // Watch for preset transform changes from parent.
+  createEffect(() => {
+    const presetSpec = props.presetTransform?.();
+    if (presetSpec) {
+      applyPresetSpec(presetSpec);
+    }
+  });
 
   // -----------------------------------------------------------------------
   // Single-mode handlers

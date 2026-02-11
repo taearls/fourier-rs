@@ -2,7 +2,7 @@
 //!
 //! Exposes the `fourier-engine` API to the `SolidJS` frontend via Tauri IPC.
 
-use std::path::Path;
+use std::path::{Path, PathBuf};
 use std::sync::{Arc, Mutex};
 
 use serde::Serialize;
@@ -13,8 +13,8 @@ use fourier_audio_io::{
     default_input_device, default_output_device, list_input_devices, list_output_devices,
 };
 use fourier_engine::{
-    Engine, EngineError, NoiseType, SourceSpec, SpectralSnapshot, TransformSpec, WaveformSnapshot,
-    WaveformType,
+    factory_presets, Engine, EngineError, NoiseType, Preset, PresetInfo, SourceSpec,
+    SpectralSnapshot, TransformSpec, WaveformSnapshot, WaveformType,
 };
 
 // ---------------------------------------------------------------------------
@@ -423,6 +423,180 @@ fn seek_source(state: State<'_, AppState>, position: f32) -> Result<(), String> 
 }
 
 // ---------------------------------------------------------------------------
+// Preset commands
+// ---------------------------------------------------------------------------
+
+/// Get the user presets directory, creating it if it doesn't exist.
+fn presets_dir() -> Result<PathBuf, String> {
+    let dir = dirs::data_dir()
+        .ok_or_else(|| "Could not determine user data directory".to_string())?
+        .join("fourier-rs")
+        .join("presets");
+
+    if !dir.exists() {
+        std::fs::create_dir_all(&dir)
+            .map_err(|e| format!("Failed to create presets directory: {e}"))?;
+    }
+
+    Ok(dir)
+}
+
+/// Sanitize a preset name into a safe filename stem.
+fn preset_filename(name: &str) -> String {
+    name.chars()
+        .map(|c| {
+            if c.is_alphanumeric() || c == '-' || c == '_' || c == ' ' {
+                c
+            } else {
+                '_'
+            }
+        })
+        .collect::<String>()
+        .trim()
+        .to_string()
+}
+
+/// Save the current engine configuration as a named preset.
+#[tauri::command]
+#[allow(clippy::needless_pass_by_value)]
+fn save_preset(
+    name: String,
+    source: SourceSpec,
+    transform: TransformSpec,
+    gain: f32,
+) -> Result<(), String> {
+    let stem = preset_filename(&name);
+    if stem.is_empty() {
+        return Err("Preset name cannot be empty".to_string());
+    }
+
+    // Prevent overwriting factory presets.
+    let factory_names: Vec<String> = factory_presets().iter().map(|p| p.name.clone()).collect();
+    if factory_names.iter().any(|n| n == &name) {
+        return Err(format!("Cannot overwrite factory preset \"{name}\""));
+    }
+
+    let preset = Preset {
+        name,
+        source,
+        transform,
+        gain,
+    };
+
+    let dir = presets_dir()?;
+    let path = dir.join(format!("{stem}.json"));
+    let json = serde_json::to_string_pretty(&preset)
+        .map_err(|e| format!("Failed to serialize preset: {e}"))?;
+
+    std::fs::write(&path, json).map_err(|e| format!("Failed to write preset file: {e}"))?;
+
+    Ok(())
+}
+
+/// Load a preset by name and return it.
+///
+/// Checks factory presets first, then user presets directory.
+#[tauri::command]
+#[allow(clippy::needless_pass_by_value)]
+fn load_preset(name: String) -> Result<Preset, String> {
+    // Check factory presets first.
+    if let Some(preset) = factory_presets().iter().find(|p| p.name == name) {
+        return Ok(preset.clone());
+    }
+
+    // Load from user directory.
+    let dir = presets_dir()?;
+    let stem = preset_filename(&name);
+    let path = dir.join(format!("{stem}.json"));
+
+    if !path.exists() {
+        return Err(format!("Preset \"{name}\" not found"));
+    }
+
+    let json =
+        std::fs::read_to_string(&path).map_err(|e| format!("Failed to read preset file: {e}"))?;
+
+    serde_json::from_str(&json).map_err(|e| format!("Failed to parse preset file: {e}"))
+}
+
+/// List all available presets (factory + user).
+#[tauri::command]
+fn list_presets() -> Result<Vec<PresetInfo>, String> {
+    let mut presets: Vec<PresetInfo> = factory_presets()
+        .iter()
+        .map(|p| PresetInfo {
+            name: p.name.clone(),
+            is_factory: true,
+        })
+        .collect();
+
+    // Scan user presets directory.
+    let dir = presets_dir()?;
+    if dir.exists() {
+        let entries = std::fs::read_dir(&dir)
+            .map_err(|e| format!("Failed to read presets directory: {e}"))?;
+
+        for entry in entries {
+            let entry = entry.map_err(|e| format!("Failed to read directory entry: {e}"))?;
+            let path = entry.path();
+            if path.extension().and_then(|e| e.to_str()) == Some("json") {
+                match std::fs::read_to_string(&path) {
+                    Ok(json) => match serde_json::from_str::<Preset>(&json) {
+                        Ok(preset) => {
+                            // Skip if a factory preset has the same name.
+                            if !presets.iter().any(|p| p.name == preset.name) {
+                                presets.push(PresetInfo {
+                                    name: preset.name,
+                                    is_factory: false,
+                                });
+                            }
+                        }
+                        Err(e) => {
+                            tracing::warn!(
+                                "Skipping malformed preset file {}: {e}",
+                                path.display()
+                            );
+                        }
+                    },
+                    Err(e) => {
+                        tracing::warn!("Failed to read preset file {}: {e}", path.display());
+                    }
+                }
+            }
+        }
+    }
+
+    presets.sort_by(|a, b| {
+        // Factory first, then alphabetical.
+        b.is_factory.cmp(&a.is_factory).then(a.name.cmp(&b.name))
+    });
+
+    Ok(presets)
+}
+
+/// Delete a user preset by name. Factory presets cannot be deleted.
+#[tauri::command]
+#[allow(clippy::needless_pass_by_value)]
+fn delete_preset(name: String) -> Result<(), String> {
+    let factory_names: Vec<String> = factory_presets().iter().map(|p| p.name.clone()).collect();
+    if factory_names.iter().any(|n| n == &name) {
+        return Err(format!("Cannot delete factory preset \"{name}\""));
+    }
+
+    let dir = presets_dir()?;
+    let stem = preset_filename(&name);
+    let path = dir.join(format!("{stem}.json"));
+
+    if !path.exists() {
+        return Err(format!("Preset \"{name}\" not found"));
+    }
+
+    std::fs::remove_file(&path).map_err(|e| format!("Failed to delete preset file: {e}"))?;
+
+    Ok(())
+}
+
+// ---------------------------------------------------------------------------
 // Public setup function for main.rs
 // ---------------------------------------------------------------------------
 
@@ -455,6 +629,10 @@ pub fn run() {
             set_source_noise,
             set_source_file,
             seek_source,
+            save_preset,
+            load_preset,
+            list_presets,
+            delete_preset,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
