@@ -7,6 +7,7 @@ import {
 } from "./bindings";
 import ControlPanel from "./ControlPanel";
 import SpectrumAnalyzer from "./SpectrumAnalyzer";
+import TunerDisplay from "./TunerDisplay";
 import WaveformDisplay from "./WaveformDisplay";
 import type { RenderMode } from "./webgl-renderer";
 
@@ -68,6 +69,7 @@ const App: Component = () => {
         <div class="viz-stack">
           <SpectrumAnalyzer snapshot={snapshot()} mode={renderMode()} />
           <WaveformDisplay waveform={waveform()} />
+          <TunerDisplay snapshot={snapshot()} />
         </div>
         <ControlPanel />
       </div>
