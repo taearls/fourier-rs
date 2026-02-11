@@ -15,28 +15,67 @@ jobs:
     runs-on: macos-latest
     steps:
       - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt
       - run: cargo fmt --all -- --check
 
-  clippy:
-    name: Clippy
+  build:
+    name: Build (${{ matrix.toolchain }})
     runs-on: macos-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        toolchain: ['1.93.0', nightly]
+    continue-on-error: ${{ matrix.toolchain == 'nightly' }}
     steps:
       - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@master
+        with:
+          toolchain: ${{ matrix.toolchain }}
+      - uses: Swatinem/rust-cache@v2
+        with:
+          key: ${{ matrix.toolchain }}
+      - run: cargo build --workspace
+
+  clippy:
+    name: Clippy (${{ matrix.toolchain }})
+    needs: build
+    runs-on: macos-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        toolchain: ['1.93.0', nightly]
+    continue-on-error: ${{ matrix.toolchain == 'nightly' }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@master
+        with:
+          toolchain: ${{ matrix.toolchain }}
+          components: clippy
+      - uses: Swatinem/rust-cache@v2
+        with:
+          key: ${{ matrix.toolchain }}
       - run: cargo clippy --workspace --tests -- -D warnings
 
   test:
-    name: Tests
+    name: Tests (${{ matrix.toolchain }})
+    needs: build
     runs-on: macos-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        toolchain: ['1.93.0', nightly]
+    continue-on-error: ${{ matrix.toolchain == 'nightly' }}
     steps:
       - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@master
+        with:
+          toolchain: ${{ matrix.toolchain }}
+      - uses: Swatinem/rust-cache@v2
+        with:
+          key: ${{ matrix.toolchain }}
       - run: cargo test --workspace
-
-  build:
-    name: Build
-    runs-on: macos-latest
-    steps:
-      - uses: actions/checkout@v4
-      - run: cargo build --workspace
 
   deny:
     name: Dependency audit
