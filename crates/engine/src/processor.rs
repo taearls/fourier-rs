@@ -34,6 +34,19 @@ pub struct SpectralSnapshot {
     pub timestamp_ms: f64,
 }
 
+/// Snapshot of time-domain audio samples sent from the processing thread to the UI.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WaveformSnapshot {
+    /// Recent time-domain audio samples (post-processing, pre-output-gain).
+    pub samples: Vec<f32>,
+    /// Sample rate at time of snapshot.
+    pub sample_rate: f32,
+    /// FFT size at time of snapshot.
+    pub fft_size: usize,
+    /// Timestamp in milliseconds since Unix epoch.
+    pub timestamp_ms: f64,
+}
+
 /// The main audio-fourier engine.
 ///
 /// Call [`Engine::new`] to create the engine and get back ring buffer
@@ -46,6 +59,8 @@ pub struct Engine {
     param_tx: Sender<ParamMessage>,
     /// Receive spectral snapshots from the processing thread.
     snapshot_rx: Receiver<SpectralSnapshot>,
+    /// Receive waveform snapshots from the processing thread.
+    waveform_rx: Receiver<WaveformSnapshot>,
 }
 
 /// Returned by [`Engine::new`] — the I/O endpoints that must be connected
@@ -79,6 +94,9 @@ impl Engine {
         // Spectral snapshot channel: processing → UI.
         let (snapshot_tx, snapshot_rx) = bounded(4);
 
+        // Waveform snapshot channel: processing → UI.
+        let (waveform_tx, waveform_rx) = bounded(4);
+
         let ola_config = OlaConfig {
             fft_size,
             hop_size,
@@ -96,6 +114,7 @@ impl Engine {
                     output_producer,
                     param_rx,
                     snapshot_tx,
+                    waveform_tx,
                 );
             })?;
 
@@ -105,6 +124,7 @@ impl Engine {
             processing_thread: Some(thread),
             param_tx,
             snapshot_rx,
+            waveform_rx,
         };
 
         let io = EngineIo {
@@ -164,6 +184,15 @@ impl Engine {
         latest
     }
 
+    /// Drain all pending waveform snapshots and return only the most recent one.
+    pub fn latest_waveform(&self) -> Option<WaveformSnapshot> {
+        let mut latest = None;
+        while let Ok(waveform) = self.waveform_rx.try_recv() {
+            latest = Some(waveform);
+        }
+        latest
+    }
+
     /// Shut down the engine and join the processing thread.
     pub fn shutdown(mut self) {
         tracing::info!("Engine shutting down");
@@ -210,14 +239,111 @@ fn build_transform(spec: &TransformSpec) -> Box<dyn SpectralTransform> {
     }
 }
 
+/// Get the current timestamp in milliseconds since Unix epoch.
+fn now_ms() -> f64 {
+    SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .map_or(0.0, |d| d.as_secs_f64() * 1000.0)
+}
+
+/// Append samples to the rolling waveform buffer for oscilloscope display.
+///
+/// `write_pos` wraps within `[0, capacity)` to avoid unbounded growth.
+fn waveform_buf_push(buf: &mut [f32], write_pos: &mut usize, count: &mut usize, samples: &[f32]) {
+    let capacity = buf.len();
+    for &s in samples {
+        buf[*write_pos] = s;
+        *write_pos = (*write_pos + 1) % capacity;
+        *count += 1;
+    }
+}
+
+/// Send spectral and waveform snapshots to the UI (non-blocking).
+#[allow(clippy::too_many_arguments)]
+fn send_snapshots(
+    ola: &OverlapAddProcessor,
+    config: &OlaConfig,
+    params: &EngineParams,
+    snapshot_tx: &Sender<SpectralSnapshot>,
+    waveform_tx: &Sender<WaveformSnapshot>,
+    waveform_buf: &[f32],
+    waveform_write_pos: usize,
+    waveform_sample_count: usize,
+) {
+    let spectrum = ola.latest_spectrum();
+    if !spectrum.is_empty() {
+        let magnitude_db = fourier_core::spectral::magnitude_spectrum_db(spectrum);
+        let peaks = detect_peaks(
+            spectrum,
+            config.sample_rate,
+            config.fft_size,
+            params.peak_threshold_db,
+        );
+        let snapshot = SpectralSnapshot {
+            magnitude_db,
+            peaks,
+            sample_rate: config.sample_rate,
+            fft_size: config.fft_size,
+            timestamp_ms: now_ms(),
+        };
+        let _ = snapshot_tx.try_send(snapshot);
+    }
+
+    if let Some(waveform) = build_waveform_snapshot(
+        waveform_buf,
+        waveform_write_pos,
+        waveform_sample_count,
+        config.sample_rate,
+        config.fft_size,
+    ) {
+        let _ = waveform_tx.try_send(waveform);
+    }
+}
+
+/// Build a `WaveformSnapshot` from the rolling waveform buffer.
+fn build_waveform_snapshot(
+    waveform_buf: &[f32],
+    waveform_write_pos: usize,
+    waveform_sample_count: usize,
+    sample_rate: f32,
+    fft_size: usize,
+) -> Option<WaveformSnapshot> {
+    let capacity = waveform_buf.len();
+    let total = waveform_sample_count.min(capacity);
+    if total == 0 {
+        return None;
+    }
+
+    // Cap to ~50ms of audio to reduce IPC payload (matches frontend display window).
+    #[allow(clippy::cast_possible_truncation, clippy::cast_sign_loss)]
+    let max_display_samples = (sample_rate * 0.05).round() as usize;
+    let total = total.min(max_display_samples);
+
+    // write_pos is always < capacity (wraps via modular arithmetic).
+    // Read the most recent `total` samples ending at write_pos.
+    let start = (waveform_write_pos + capacity - total) % capacity;
+    let mut samples = Vec::with_capacity(total);
+    for i in 0..total {
+        samples.push(waveform_buf[(start + i) % capacity]);
+    }
+
+    Some(WaveformSnapshot {
+        samples,
+        sample_rate,
+        fft_size,
+        timestamp_ms: now_ms(),
+    })
+}
+
 /// The main processing loop running on its own thread.
-#[allow(clippy::needless_pass_by_value)]
+#[allow(clippy::needless_pass_by_value, clippy::too_many_lines)]
 fn processing_loop(
     config: OlaConfig,
     mut input: RingConsumer,
     mut output: RingProducer,
     param_rx: Receiver<ParamMessage>,
     snapshot_tx: Sender<SpectralSnapshot>,
+    waveform_tx: Sender<WaveformSnapshot>,
 ) {
     tracing::debug!(
         fft_size = config.fft_size,
@@ -237,6 +363,13 @@ fn processing_loop(
     let chunk_size = config.hop_size;
     let mut input_chunk = vec![0.0_f32; chunk_size];
     let mut output_chunk = vec![0.0_f32; chunk_size];
+
+    // Rolling buffer for waveform display. Stores up to 4 × fft_size recent
+    // output samples (pre-gain) for oscilloscope visualization.
+    let waveform_capacity = config.fft_size * 4;
+    let mut waveform_buf = vec![0.0_f32; waveform_capacity];
+    let mut waveform_write_pos: usize = 0;
+    let mut waveform_sample_count: usize = 0;
 
     let mut frame_counter: u64 = 0;
 
@@ -294,6 +427,12 @@ fn processing_loop(
         if params.bypass {
             // Bypass: pass input directly to output.
             output.push_slice(input_slice);
+            waveform_buf_push(
+                &mut waveform_buf,
+                &mut waveform_write_pos,
+                &mut waveform_sample_count,
+                input_slice,
+            );
         } else {
             // 3. Push into OLA processor, applying the current transform.
             ola.push_samples(input_slice, transform.as_mut());
@@ -301,6 +440,13 @@ fn processing_loop(
             // 4. Pull processed output.
             let n_out = ola.pull_samples(&mut output_chunk);
             if n_out > 0 {
+                // Capture pre-gain samples for waveform display.
+                waveform_buf_push(
+                    &mut waveform_buf,
+                    &mut waveform_write_pos,
+                    &mut waveform_sample_count,
+                    &output_chunk[..n_out],
+                );
                 // Apply output gain.
                 if (params.output_gain - 1.0).abs() > 1e-6 {
                     for s in &mut output_chunk[..n_out] {
@@ -311,31 +457,19 @@ fn processing_loop(
             }
         }
 
-        // 5. Send spectral snapshot to UI periodically (every ~10 frames to avoid flooding).
+        // 5. Send snapshots to UI periodically (every ~10 frames to avoid flooding).
         frame_counter += 1;
         if frame_counter.is_multiple_of(10) {
-            let spectrum = ola.latest_spectrum();
-            if !spectrum.is_empty() {
-                let magnitude_db = fourier_core::spectral::magnitude_spectrum_db(spectrum);
-                let peaks = detect_peaks(
-                    spectrum,
-                    config.sample_rate,
-                    config.fft_size,
-                    params.peak_threshold_db,
-                );
-                let timestamp_ms = SystemTime::now()
-                    .duration_since(UNIX_EPOCH)
-                    .map_or(0.0, |d| d.as_secs_f64() * 1000.0);
-                let snapshot = SpectralSnapshot {
-                    magnitude_db,
-                    peaks,
-                    sample_rate: config.sample_rate,
-                    fft_size: config.fft_size,
-                    timestamp_ms,
-                };
-                // Non-blocking: drop snapshot if UI can't keep up.
-                let _ = snapshot_tx.try_send(snapshot);
-            }
+            send_snapshots(
+                &ola,
+                &config,
+                &params,
+                &snapshot_tx,
+                &waveform_tx,
+                &waveform_buf,
+                waveform_write_pos,
+                waveform_sample_count,
+            );
         }
     }
 }
@@ -545,6 +679,94 @@ mod tests {
             thread::sleep(std::time::Duration::from_millis(50));
         }
         assert!(got_snapshot, "should receive a spectral snapshot");
+
+        engine.shutdown();
+    }
+
+    #[test]
+    fn engine_waveform_snapshot() {
+        let fft_size = 256;
+        let hop_size = 128;
+        let sample_rate = 44100.0;
+
+        let (engine, io) = Engine::new(sample_rate, fft_size, hop_size).unwrap();
+        engine.set_transform(TransformSpec::Identity).unwrap();
+
+        let mut producer = io.input_producer;
+
+        // Push enough data to trigger multiple processing frames.
+        let input: Vec<f32> = (0..4096)
+            .map(|i| (2.0 * std::f32::consts::PI * 440.0 * i as f32 / sample_rate).sin())
+            .collect();
+        producer.push_slice(&input);
+
+        // Wait for processing.
+        thread::sleep(std::time::Duration::from_millis(200));
+
+        // Should eventually receive a waveform snapshot.
+        let mut got_waveform = false;
+        for _ in 0..10 {
+            if let Some(waveform) = engine.latest_waveform() {
+                assert_eq!(waveform.fft_size, fft_size);
+                assert!((waveform.sample_rate - sample_rate).abs() < 0.01);
+                assert!(!waveform.samples.is_empty());
+                // Samples should have some nonzero energy (processed sine wave).
+                let energy: f32 = waveform.samples.iter().map(|s| s * s).sum();
+                assert!(energy > 0.0, "waveform should have nonzero energy");
+                got_waveform = true;
+                break;
+            }
+            thread::sleep(std::time::Duration::from_millis(50));
+        }
+        assert!(got_waveform, "should receive a waveform snapshot");
+
+        engine.shutdown();
+    }
+
+    #[test]
+    fn engine_waveform_from_oscillator_source() {
+        let fft_size = 256;
+        let hop_size = 128;
+        let sample_rate = 44100.0;
+
+        let (engine, io) = Engine::new(sample_rate, fft_size, hop_size).unwrap();
+        engine.set_transform(TransformSpec::Identity).unwrap();
+        engine
+            .set_source(SourceSpec::Oscillator {
+                waveform: fourier_core::WaveformType::Sine,
+                frequency: 440.0,
+                amplitude: 1.0,
+            })
+            .unwrap();
+
+        // Don't need the consumer, but keep io alive.
+        let _consumer = io.output_consumer;
+
+        thread::sleep(std::time::Duration::from_millis(300));
+
+        let mut got_waveform = false;
+        for _ in 0..10 {
+            if let Some(waveform) = engine.latest_waveform() {
+                assert!(!waveform.samples.is_empty());
+                // Waveform samples should be within [-1, 1] range (pre-gain).
+                let max_abs = waveform
+                    .samples
+                    .iter()
+                    .map(|s| s.abs())
+                    .fold(0.0_f32, f32::max);
+                assert!(
+                    max_abs <= 1.5,
+                    "waveform samples should be approximately in [-1, 1], got max_abs={max_abs}"
+                );
+                got_waveform = true;
+                break;
+            }
+            thread::sleep(std::time::Duration::from_millis(50));
+        }
+        assert!(
+            got_waveform,
+            "should receive waveform from oscillator source"
+        );
 
         engine.shutdown();
     }

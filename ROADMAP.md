@@ -1,6 +1,6 @@
 # Fourier-RS Roadmap
 
-> **Last updated:** 2026-02-10
+> **Last updated:** 2026-02-11
 >
 > Real-time audio DSP framework &rarr; Tauri desktop synthesizer with Fourier analysis
 
@@ -8,12 +8,12 @@
 
 ## Open Issues Summary
 
-**12 open issues** across 7 phases (16 completed)
+**11 open issues** across 7 phases (17 completed)
 
 | Priority | Count | Issues |
 |----------|-------|--------|
 | :red_circle: Critical | 0 | &mdash; |
-| :yellow_circle: High | 2 | #18, #26 |
+| :yellow_circle: High | 1 | #26 |
 | :green_circle: Medium | 7 | #3, #4, #11, #12, #21, #23, #24 |
 | :large_blue_circle: Low | 3 | #10, #27, #28 |
 
@@ -44,6 +44,7 @@ The following capabilities already exist in the codebase:
 - **Control panel** &mdash; `<ControlPanel />` SolidJS component with source selector (Live/Oscillator/Noise/File), oscillator waveform+frequency controls, noise type selector, WAV file picker via native dialog + seek slider + loop toggle, engine start/stop button, master gain slider
 - **Parametric EQ** &mdash; `ParametricEq` spectral transform with `EqBand` (frequency, gain_db, q, band_type) and `BandType` enum (Peak, LowShelf, HighShelf); smooth bell curves for Peak, sigmoid transitions for shelves; `TransformSpec::ParametricEq` variant with serde support and TypeScript bindings
 - **Transform panel** &mdash; `<TransformPanel />` SolidJS component with transform type selector (Identity, LowPass, HighPass, BandPass, Gain, ParametricEq); per-transform parameter controls (cutoff frequency, band range, gain factor); parametric EQ per-band controls (frequency, gain dB, Q, band type) with add/remove; transform chain mode with add/remove/reorder multiple transforms; all changes immediately sent to engine via `set_transform` Tauri command
+- **Waveform oscilloscope** &mdash; `WaveformSnapshot` struct with rolling time-domain sample buffer; `get_waveform` Tauri command with drain-to-latest polling; `<WaveformDisplay />` SolidJS component with WebGL rendering, zero-crossing trigger for stable display, amplitude axis (-1 to +1), time axis (ms), responsive resize; green oscilloscope color scheme; stacked layout with spectrum analyzer
 - **Error handling &amp; logging** &mdash; `thiserror`-based error enums (`CoreError`, `AudioIoError`, `EngineError`, `FileIoError`) across all crates; no `String` error types in public APIs; `tracing` instrumentation at engine lifecycle, parameter changes, and error paths; Tauri commands convert `EngineError` to user-friendly strings
 
 ---
@@ -139,14 +140,14 @@ The following capabilities already exist in the codebase:
 | # | Title | Priority | Effort | Dependencies |
 |---|-------|----------|--------|--------------|
 | #17 | ~~Build spectrum analyzer visualization with WebGL~~ | :white_check_mark: Done | ~3 days | ~~#15~~ |
-| #18 | Build waveform/oscilloscope display | :yellow_circle: High | ~2 days | #14, #15 |
+| #18 | ~~Build waveform/oscilloscope display~~ | :white_check_mark: Done | ~2 days | ~~#14~~, ~~#15~~ |
 | #19 | ~~Build transport and source control panel~~ | :white_check_mark: Done | ~2 days | ~~#14~~, ~~#16~~ |
 | #20 | ~~Build transform/filter control panel~~ | :white_check_mark: Done | ~2 days | ~~#9~~, ~~#14~~ |
 | #21 | Build peak frequency and note detection display | :green_circle: Medium | ~1 day | #15 |
 
 **Key deliverables:**
 - ~~`<SpectrumAnalyzer />` &mdash; WebGL, log freq axis, dB magnitude, peak markers~~ :white_check_mark:
-- `<WaveformDisplay />` &mdash; WebGL oscilloscope with zero-crossing trigger
+- ~~`<WaveformDisplay />` &mdash; WebGL oscilloscope with zero-crossing trigger~~ :white_check_mark:
 - ~~`<ControlPanel />` &mdash; source selector, oscillator/noise/file controls, gain~~ :white_check_mark:
 - ~~`<TransformPanel />` &mdash; EQ bands, pitch shift, freeze toggle, chain management~~ :white_check_mark:
 - `<TunerDisplay />` &mdash; peak frequency, note name, cents deviation
@@ -240,6 +241,7 @@ App shell and engine commands done. Moving to streaming and source commands:
 12. ~~**#19** &mdash; Build transport and source control panel~~ `:white_check_mark:`
 13. ~~**#7** &mdash; Add WAV file writing/export~~ `:white_check_mark:`
 14. ~~**#25** &mdash; Add error handling and logging~~ `:white_check_mark:`
+15. ~~**#18** &mdash; Build waveform/oscilloscope display~~ `:white_check_mark:`
 
 ### PARALLEL TRACKS
 
@@ -289,7 +291,7 @@ These can proceed independently alongside the critical path:
 |-------|-------|-----------|
 | ~~16~~ | ~~#17 Spectrum analyzer (WebGL)~~ | ~~Flagship visualization~~ :white_check_mark: |
 | ~~17~~ | ~~#19 Transport/source control panel~~ | ~~Core user interaction~~ :white_check_mark: |
-| 18 | #18 Waveform display | Second visualization |
+| ~~18~~ | ~~#18 Waveform display~~ | ~~Second visualization~~ :white_check_mark: |
 | ~~19~~ | ~~#20 Transform control panel~~ | ~~Effect parameter UI~~ :white_check_mark: |
 | 20 | #21 Note detection display | Tuner feature |
 
@@ -319,10 +321,10 @@ These can proceed independently alongside the critical path:
 | 2 &mdash; File I/O | 3 | 0 | 0 | 0 | 0 | 3 |
 | 3 &mdash; DSP | 4 | 0 | 0 | 2 | 1 | 1 |
 | 4 &mdash; Tauri | 4 | 0 | 0 | 0 | 0 | 4 |
-| 5 &mdash; UI | 5 | 0 | 1 | 1 | 0 | 3 |
+| 5 &mdash; UI | 5 | 0 | 0 | 1 | 0 | 4 |
 | 6 &mdash; Workflow | 3 | 0 | 0 | 2 | 0 | 1 |
 | 7 &mdash; Polish/Web | 5 | 0 | 1 | 0 | 2 | 2 |
-| **Total** | **28** | **0** | **2** | **7** | **3** | **16** |
+| **Total** | **28** | **0** | **1** | **7** | **3** | **17** |
 
 ---
 
@@ -341,6 +343,9 @@ These can proceed independently alongside the critical path:
 ---
 
 ## Changelog
+
+### 2026-02-11
+- **Completed #18** (waveform/oscilloscope display) &mdash; added `WaveformSnapshot` struct in `crates/engine/src/processor.rs` with `samples: Vec<f32>`, `sample_rate`, `fft_size`, `timestamp_ms`; rolling waveform buffer (4&times;fft_size capacity) in the processing loop captures time-domain output samples pre-gain for visualization; `waveform_buf_push()` and `build_waveform_snapshot()` helpers extract chronologically-ordered samples from the circular buffer; separate bounded channel (capacity 4) with drain-to-latest `Engine::latest_waveform()` method; `get_waveform` Tauri command in `app/src-tauri/src/lib.rs` mirrors `get_spectrum` pattern; `WaveformSnapshot` TypeScript interface and `getWaveform()` wrapper in `app/src/bindings.ts`; `<WaveformDisplay />` SolidJS component in `app/src/WaveformDisplay.tsx` with WebGL rendering via `drawWaveform()` method (green oscilloscope color #22c55e), zero-crossing trigger via `findRisingZeroCrossing()` for stable periodic signal display, amplitude axis (-1 to +1) with center-line emphasis, time axis (ms) with adaptive tick intervals, responsive resize via ResizeObserver, 2D canvas overlay for axis labels and grid; stacked layout with spectrum analyzer above waveform below in `.viz-stack` flex column; waveform display window capped at 50ms for readable oscilloscope view; utility functions in `app/src/waveform-utils.ts` for vertex building, zero-crossing detection, and axis formatting; `App.tsx` polls both `getSpectrum()` and `getWaveform()` in parallel via `Promise.all` for synchronized 60fps updates; 2 new engine tests (waveform snapshot from live input, waveform from oscillator source); all 164 tests pass; extends Phase 5 (UI Components)
 
 ### 2026-02-10
 - **Completed #25** (error handling and logging) &mdash; added `thiserror` and `tracing` to workspace dependencies; created `CoreError` enum in `crates/core/src/error.rs` with `FftForwardFailed` and `FftInverseFailed` variants; changed `FftProcessor::forward()` and `inverse()` to return `Result<(), CoreError>` instead of panicking; updated `OverlapAddProcessor::process_frame()` to log FFT errors via `tracing::error!` and gracefully skip failed frames; created `AudioIoError` enum in `crates/audio-io/src/error.rs` with `ConfigQueryFailed`, `UnsupportedSampleFormat`, `StreamBuildFailed`, `StreamPlayFailed` variants wrapping cpal error types; replaced all `Result<_, String>` in `AudioStream::open_input/open_output` with `Result<_, AudioIoError>`; replaced `eprintln!` in audio callbacks with `tracing::error!`; created `EngineError` enum in `crates/engine/src/error.rs` with `ThreadSpawnFailed`, `ChannelSendFailed`, `AudioIo`, `FileIo` variants composing lower-level errors via `#[from]`; changed `Engine::new()` to return `Result<(Self, EngineIo), EngineError>` instead of panicking on thread spawn; changed all `Engine` public methods (`send_param`, `set_transform`, `set_output_gain`, `set_bypass`, `set_source`, `seek`) to return `Result<_, EngineError>` instead of `Result<_, String>`; converted `FileIoError` in `crates/file-io` from manual `Display`/`Error` impls to `thiserror` derive macros; added `tracing` instrumentation: `info!` at engine start/stop, `debug!` at processing thread start, transform/source/gain/bypass changes, shutdown signal, engine drop; Tauri commands convert `EngineError` to user-friendly strings via `engine_err()` helper at the IPC boundary; updated FFI `engine_create()` to return null on failure instead of panicking; updated CLI examples to handle `Result` from `Engine::new()`; all 162 existing tests pass; re-exported `EngineError`, `CoreError`, `AudioIoError` from respective crate roots; begins Phase 7 (Polish &amp; Web Readiness)

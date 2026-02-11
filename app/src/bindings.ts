@@ -91,6 +91,14 @@ export interface SpectralSnapshot {
   timestamp_ms: number;
 }
 
+/** A point-in-time snapshot of time-domain audio samples from the engine. */
+export interface WaveformSnapshot {
+  samples: number[];
+  sample_rate: number;
+  fft_size: number;
+  timestamp_ms: number;
+}
+
 // ---------------------------------------------------------------------------
 // Command wrappers
 // ---------------------------------------------------------------------------
@@ -152,6 +160,17 @@ export function setBypass(bypass: boolean): Promise<void> {
  */
 export function getSpectrum(): Promise<SpectralSnapshot | null> {
   return invoke("get_spectrum");
+}
+
+/**
+ * Get the latest waveform snapshot from the engine.
+ *
+ * Returns `null` when the engine is not running or no snapshot is available.
+ * Drains all pending snapshots and returns only the most recent one.
+ * Call this from a `requestAnimationFrame` loop for 60fps polling.
+ */
+export function getWaveform(): Promise<WaveformSnapshot | null> {
+  return invoke("get_waveform");
 }
 
 /** List available audio devices (both input and output). */

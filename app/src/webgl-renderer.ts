@@ -178,6 +178,20 @@ export class WebGLRenderer {
     gl.drawArrays(gl.LINE_STRIP, 0, vertices.length / 2);
   }
 
+  /** Draw a time-domain waveform line (green oscilloscope style). */
+  drawWaveform(vertices: Float32Array): void {
+    if (vertices.length === 0) return;
+    const gl = this.gl;
+
+    gl.bindBuffer(gl.ARRAY_BUFFER, this.positionBuffer);
+    gl.bufferData(gl.ARRAY_BUFFER, vertices, gl.DYNAMIC_DRAW);
+    gl.vertexAttribPointer(this.aPosition, 2, gl.FLOAT, false, 0, 0);
+
+    // Oscilloscope green: #22c55e (34, 197, 94)
+    gl.uniform4f(this.uColor, 0.133, 0.773, 0.369, 1.0);
+    gl.drawArrays(gl.LINE_STRIP, 0, vertices.length / 2);
+  }
+
   /** Draw peak marker dots. */
   drawPeaks(peakVertices: Float32Array): void {
     if (peakVertices.length === 0) return;

@@ -13,7 +13,8 @@ use fourier_audio_io::{
     default_input_device, default_output_device, list_input_devices, list_output_devices,
 };
 use fourier_engine::{
-    Engine, EngineError, NoiseType, SourceSpec, SpectralSnapshot, TransformSpec, WaveformType,
+    Engine, EngineError, NoiseType, SourceSpec, SpectralSnapshot, TransformSpec, WaveformSnapshot,
+    WaveformType,
 };
 
 // ---------------------------------------------------------------------------
@@ -229,6 +230,25 @@ fn get_spectrum(state: State<'_, AppState>) -> Result<Option<SpectralSnapshot>, 
     Ok(engine_state.engine.latest_snapshot())
 }
 
+/// Get the latest waveform snapshot from the engine.
+///
+/// Drains all pending waveform snapshots and returns only the most recent one.
+/// Returns `null` when the engine is not running or no snapshot is available yet.
+#[tauri::command]
+#[allow(clippy::needless_pass_by_value, clippy::significant_drop_tightening)]
+fn get_waveform(state: State<'_, AppState>) -> Result<Option<WaveformSnapshot>, String> {
+    let guard = state
+        .engine
+        .lock()
+        .map_err(|e| format!("Lock poisoned: {e}"))?;
+
+    let Some(engine_state) = guard.as_ref() else {
+        return Ok(None);
+    };
+
+    Ok(engine_state.engine.latest_waveform())
+}
+
 /// List available audio devices (both input and output).
 #[tauri::command]
 fn get_devices() -> Vec<DeviceInfo> {
@@ -428,6 +448,7 @@ pub fn run() {
             set_gain,
             set_bypass,
             get_spectrum,
+            get_waveform,
             get_devices,
             set_source_live_input,
             set_source_oscillator,
