@@ -8,12 +8,12 @@
 
 ## Open Issues Summary
 
-**10 open issues** across 7 phases (18 completed)
+**9 open issues** across 7 phases (19 completed)
 
 | Priority | Count | Issues |
 |----------|-------|--------|
 | :red_circle: Critical | 0 | &mdash; |
-| :yellow_circle: High | 1 | #26 |
+| :yellow_circle: High | 0 | &mdash; |
 | :green_circle: Medium | 6 | #3, #4, #11, #12, #23, #24 |
 | :large_blue_circle: Low | 3 | #10, #27, #28 |
 
@@ -183,14 +183,14 @@ The following capabilities already exist in the codebase:
 | # | Title | Priority | Effort | Dependencies |
 |---|-------|----------|--------|--------------|
 | #25 | ~~Add error handling (thiserror) and logging (tracing)~~ | :white_check_mark: Done | ~2 days | &mdash; |
-| #26 | Add GitHub Actions CI pipeline | :yellow_circle: High | ~1 day | &mdash; |
+| #26 | ~~Add GitHub Actions CI pipeline~~ | :white_check_mark: Done | ~1 day | &mdash; |
 | #27 | Compile fourier-core to WASM target | :large_blue_circle: Low | ~2 days | #2 |
 | #28 | Add WebAudio integration layer | :large_blue_circle: Low | ~3 days | #27 |
 | #30 | ~~Set up development infrastructure (linting, formatting, testing, CI)~~ | :white_check_mark: Done | ~2 days | &mdash; |
 
 **Key deliverables:**
 - ~~`EngineError` enum via `thiserror`, `tracing` instrumentation~~ :white_check_mark:
-- CI: build, test, clippy, fmt on macOS (stable + nightly)
+- ~~CI: build, test, clippy, fmt on macOS (stable + nightly)~~ :white_check_mark:
 - WASM build of fourier-core with `wasm-bindgen` exports
 - AudioWorklet integration with example web page
 - ~~Dev infrastructure: `rust-toolchain.toml`, `rustfmt.toml`, workspace lints, `.editorconfig`, `deny.toml`, `Justfile`~~ :white_check_mark:
@@ -251,7 +251,7 @@ These can proceed independently alongside the critical path:
 
 - **DSP track:** ~~#9 (Parametric EQ)~~, #11 (Freeze), #12 (Pitch shift)
 - **File I/O track:** ~~#6~~, ~~#7~~ (WAV read/write) :white_check_mark:
-- **Polish track:** ~~#25~~, #26 (error handling, CI)
+- **Polish track:** ~~#25~~, ~~#26~~ (error handling, CI) :white_check_mark:
 
 ---
 
@@ -309,7 +309,7 @@ These can proceed independently alongside the critical path:
 | Order | Issue | Rationale |
 |-------|-------|-----------|
 | 25 | #10 Spectral delay | Niche effect |
-| 26 | #26 CI pipeline (if not covered by #30) | Additional CI beyond #30 |
+| ~~26~~ | ~~#26 CI pipeline~~ | ~~Stable + nightly matrix, caching~~ :white_check_mark: |
 | 27 | #27 WASM compilation | Web readiness |
 | 28 | #28 WebAudio integration | Browser demo |
 
@@ -325,8 +325,8 @@ These can proceed independently alongside the critical path:
 | 4 &mdash; Tauri | 4 | 0 | 0 | 0 | 0 | 4 |
 | 5 &mdash; UI | 5 | 0 | 0 | 0 | 0 | 5 |
 | 6 &mdash; Workflow | 3 | 0 | 0 | 2 | 0 | 1 |
-| 7 &mdash; Polish/Web | 5 | 0 | 1 | 0 | 2 | 2 |
-| **Total** | **28** | **0** | **1** | **6** | **3** | **18** |
+| 7 &mdash; Polish/Web | 5 | 0 | 0 | 0 | 2 | 3 |
+| **Total** | **28** | **0** | **0** | **6** | **3** | **19** |
 
 ---
 
@@ -347,6 +347,7 @@ These can proceed independently alongside the critical path:
 ## Changelog
 
 ### 2026-02-11
+- **Completed #26** (GitHub Actions CI pipeline) &mdash; upgraded `.github/workflows/ci.yml` with stable + nightly Rust toolchain matrix; nightly jobs allowed to fail via `continue-on-error`; `dtolnay/rust-toolchain` action for explicit toolchain management; `Swatinem/rust-cache` for build caching on clippy, test, and build jobs; `fail-fast: false` ensures all matrix combinations run to completion; fmt job uses stable-only (formatting is toolchain-independent); all four required jobs (build, test, clippy, fmt) run on `macos-latest`; triggers on push to main and PRs; deny job unchanged on ubuntu-latest; CI badge already present in README.md
 - **Completed #21** (peak frequency and note detection display) &mdash; created `<TunerDisplay />` SolidJS component in `app/src/TunerDisplay.tsx` displaying detected pitch as a musical note with tuning accuracy; receives `SpectralSnapshot` via props and extracts strongest peak within 20Hz&ndash;10kHz above -60dB threshold; `tuner-utils.ts` utility module with `getTunerReading()` function performing frequency-to-MIDI conversion (`midi = 69 + 12 * log2(freq / 440)`), note name mapping via chromatic lookup table, octave calculation, and cents deviation (`(fractionalMidi - nearestMidi) * 100`); displays note label (e.g. &ldquo;A4&rdquo;, &ldquo;C#5&rdquo;), frequency in Hz, and cents deviation with color-coded visual indicator; color coding: green (#22c55e) within &pm;5 cents (in tune), yellow (#eab308) &pm;5&ndash;20 cents (close), red (#ef4444) beyond &pm;20 cents (out of tune); horizontal cents bar with centered reference marker, circular indicator sliding left/right proportional to deviation (&pm;50 cent range), smooth CSS transitions; no-signal graceful fallback showing &ldquo;--&rdquo; for note, frequency, and cents when no valid peak detected; integrated into `App.tsx` viz-stack below waveform display; styled in `styles.css` matching dark theme with `var(--border)` separator, `var(--fg)` text, and tabular-nums for stable numeric readout; `TunerReading` and `TunerColor` TypeScript types exported for potential reuse; all 164 existing tests pass; completes Phase 5 (UI Components) with all 5 issues done
 - **Completed #18** (waveform/oscilloscope display) &mdash; added `WaveformSnapshot` struct in `crates/engine/src/processor.rs` with `samples: Vec<f32>`, `sample_rate`, `fft_size`, `timestamp_ms`; rolling waveform buffer (4&times;fft_size capacity) in the processing loop captures time-domain output samples pre-gain for visualization; `waveform_buf_push()` and `build_waveform_snapshot()` helpers extract chronologically-ordered samples from the circular buffer; separate bounded channel (capacity 4) with drain-to-latest `Engine::latest_waveform()` method; `get_waveform` Tauri command in `app/src-tauri/src/lib.rs` mirrors `get_spectrum` pattern; `WaveformSnapshot` TypeScript interface and `getWaveform()` wrapper in `app/src/bindings.ts`; `<WaveformDisplay />` SolidJS component in `app/src/WaveformDisplay.tsx` with WebGL rendering via `drawWaveform()` method (green oscilloscope color #22c55e), zero-crossing trigger via `findRisingZeroCrossing()` for stable periodic signal display, amplitude axis (-1 to +1) with center-line emphasis, time axis (ms) with adaptive tick intervals, responsive resize via ResizeObserver, 2D canvas overlay for axis labels and grid; stacked layout with spectrum analyzer above waveform below in `.viz-stack` flex column; waveform display window capped at 50ms for readable oscilloscope view; utility functions in `app/src/waveform-utils.ts` for vertex building, zero-crossing detection, and axis formatting; `App.tsx` polls both `getSpectrum()` and `getWaveform()` in parallel via `Promise.all` for synchronized 60fps updates; 2 new engine tests (waveform snapshot from live input, waveform from oscillator source); all 164 tests pass; extends Phase 5 (UI Components)
 
