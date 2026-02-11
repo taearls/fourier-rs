@@ -148,6 +148,7 @@ pub enum TransformSpec {
     Gain { factor: f32 },
     ParametricEq { bands: Vec<EqBand> },
     SpectralFreeze { frozen: bool },
+    PitchShift { semitones: f32 },
     Chain(Vec<Self>),
 }
 
@@ -566,6 +567,47 @@ mod tests {
                 assert!(frozen);
             }
             other => panic!("expected SetTransform(SpectralFreeze), got {other:?}"),
+        }
+    }
+
+    // --- PitchShift TransformSpec roundtrips ---
+
+    #[test]
+    fn transform_spec_pitch_shift_roundtrip() {
+        let spec = TransformSpec::PitchShift { semitones: 7.0 };
+        let json = roundtrip_json(&spec);
+        assert!(json.contains("PitchShift"));
+        assert!(json.contains("7.0"));
+    }
+
+    #[test]
+    fn transform_spec_pitch_shift_negative_roundtrip() {
+        let spec = TransformSpec::PitchShift { semitones: -5.5 };
+        let json = roundtrip_json(&spec);
+        assert!(json.contains("PitchShift"));
+        assert!(json.contains("-5.5"));
+    }
+
+    #[test]
+    fn transform_spec_pitch_shift_in_chain_roundtrip() {
+        let spec = TransformSpec::Chain(vec![
+            TransformSpec::PitchShift { semitones: 12.0 },
+            TransformSpec::Gain { factor: 0.8 },
+        ]);
+        roundtrip_json(&spec);
+    }
+
+    #[test]
+    fn param_message_set_pitch_shift_roundtrip() {
+        let msg = ParamMessage::SetTransform(TransformSpec::PitchShift { semitones: -7.0 });
+        let json = serde_json::to_string_pretty(&msg).unwrap();
+        assert!(json.contains("PitchShift"));
+        let recovered: ParamMessage = serde_json::from_str(&json).unwrap();
+        match recovered {
+            ParamMessage::SetTransform(TransformSpec::PitchShift { semitones }) => {
+                assert!((semitones - (-7.0)).abs() < f32::EPSILON);
+            }
+            other => panic!("expected SetTransform(PitchShift), got {other:?}"),
         }
     }
 }

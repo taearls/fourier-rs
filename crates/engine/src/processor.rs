@@ -11,8 +11,8 @@ use fourier_audio_io::ring_buffer::{AudioRingBuffer, RingConsumer, RingProducer}
 use fourier_core::overlap_add::{OlaConfig, OverlapAddProcessor};
 use fourier_core::spectral::{detect_peaks, SpectralPeak};
 use fourier_core::transform::{
-    BandPassFilter, HighPassFilter, IdentityTransform, LowPassFilter, ParametricEq, SpectralFreeze,
-    SpectralGain, SpectralTransform, TransformChain,
+    BandPassFilter, HighPassFilter, IdentityTransform, LowPassFilter, ParametricEq, PitchShift,
+    SpectralFreeze, SpectralGain, SpectralTransform, TransformChain,
 };
 
 use crate::error::EngineError;
@@ -236,6 +236,7 @@ fn build_transform(
         TransformSpec::SpectralFreeze { frozen } => {
             Box::new(SpectralFreeze::new(*frozen, sample_rate, hop_size))
         }
+        TransformSpec::PitchShift { semitones } => Box::new(PitchShift::new(*semitones)),
         TransformSpec::Chain(specs) => {
             let mut chain = TransformChain::new();
             for s in specs {
@@ -1353,6 +1354,69 @@ mod tests {
                 .unwrap();
             engine.set_transform(TransformSpec::Identity).unwrap();
         }
+
+        thread::sleep(std::time::Duration::from_millis(50));
+        engine.shutdown();
+    }
+
+    // --- PitchShift integration tests ---
+
+    #[test]
+    fn engine_pitch_shift_produces_output() {
+        let fft_size = 1024;
+        let hop_size = 512;
+        let sample_rate = 44100.0;
+
+        let (engine, io) = Engine::new(sample_rate, fft_size, hop_size).unwrap();
+
+        // Use oscillator source at 440 Hz.
+        engine
+            .set_source(SourceSpec::Oscillator {
+                waveform: fourier_core::WaveformType::Sine,
+                frequency: 440.0,
+                amplitude: 1.0,
+            })
+            .unwrap();
+
+        // Let oscillator run to fill the OLA pipeline.
+        thread::sleep(std::time::Duration::from_millis(100));
+
+        // Apply pitch shift.
+        engine
+            .set_transform(TransformSpec::PitchShift { semitones: 12.0 })
+            .unwrap();
+
+        let mut consumer = io.output_consumer;
+        thread::sleep(std::time::Duration::from_millis(200));
+
+        let mut output = vec![0.0_f32; 8192];
+        let n = consumer.pop_slice(&mut output);
+
+        assert!(n > 0, "pitch shift should produce output");
+        let energy: f32 = output[..n].iter().map(|s| s * s).sum();
+        assert!(
+            energy > 0.0,
+            "pitch shift output should have nonzero energy"
+        );
+
+        engine.shutdown();
+    }
+
+    #[test]
+    fn engine_pitch_shift_switch_does_not_panic() {
+        let fft_size = 256;
+        let hop_size = 128;
+        let sample_rate = 44100.0;
+
+        let (engine, _io) = Engine::new(sample_rate, fft_size, hop_size).unwrap();
+
+        // Rapidly switch pitch shift values — should not panic or deadlock.
+        for semitones in [-12.0, -7.0, -1.0, 0.0, 1.0, 5.0, 7.0, 12.0, 24.0] {
+            engine
+                .set_transform(TransformSpec::PitchShift { semitones })
+                .unwrap();
+        }
+        engine.set_transform(TransformSpec::Identity).unwrap();
 
         thread::sleep(std::time::Duration::from_millis(50));
         engine.shutdown();
