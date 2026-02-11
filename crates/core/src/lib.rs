@@ -14,7 +14,7 @@ pub mod transform;
 pub mod window;
 
 // Re-export key types at crate root for convenience.
-pub use additive::{harmonic_series, AdditiveSynth, Partial};
+pub use additive::{harmonic_series, harmonic_series_with, AdditiveSynth, Partial};
 pub use error::CoreError;
 pub use fft::FftProcessor;
 pub use noise::{NoiseGenerator, NoiseType};
