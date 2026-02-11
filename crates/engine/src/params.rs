@@ -4,6 +4,7 @@ use std::sync::Arc;
 
 use fourier_core::transform::EqBand;
 pub use fourier_core::NoiseType;
+pub use fourier_core::Partial;
 use fourier_core::WaveformType;
 use fourier_file_io::AudioBuffer;
 use serde::{Deserialize, Serialize};
@@ -27,17 +28,6 @@ impl Default for EngineParams {
             peak_threshold_db: -60.0,
         }
     }
-}
-
-/// A single partial for additive synthesis.
-#[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
-pub struct Partial {
-    /// Frequency in Hz.
-    pub frequency: f32,
-    /// Linear amplitude (0.0–1.0 typical).
-    pub amplitude: f32,
-    /// Starting phase in radians.
-    pub phase: f32,
 }
 
 /// Specification for the audio source feeding the engine.
