@@ -21,60 +21,37 @@ jobs:
       - run: cargo fmt --all -- --check
 
   build:
-    name: Build (${{ matrix.toolchain }})
+    name: Build
     runs-on: macos-latest
-    strategy:
-      fail-fast: false
-      matrix:
-        toolchain: ['1.93.0', nightly]
-    continue-on-error: ${{ matrix.toolchain == 'nightly' }}
     steps:
       - uses: actions/checkout@v4
       - uses: dtolnay/rust-toolchain@master
         with:
-          toolchain: ${{ matrix.toolchain }}
+          toolchain: '1.93.0'
       - uses: Swatinem/rust-cache@v2
-        with:
-          key: ${{ matrix.toolchain }}
       - run: cargo build --workspace
 
   clippy:
-    name: Clippy (${{ matrix.toolchain }})
-    needs: build
+    name: Clippy
     runs-on: macos-latest
-    strategy:
-      fail-fast: false
-      matrix:
-        toolchain: ['1.93.0', nightly]
-    continue-on-error: ${{ matrix.toolchain == 'nightly' }}
     steps:
       - uses: actions/checkout@v4
       - uses: dtolnay/rust-toolchain@master
         with:
-          toolchain: ${{ matrix.toolchain }}
+          toolchain: '1.93.0'
           components: clippy
       - uses: Swatinem/rust-cache@v2
-        with:
-          key: ${{ matrix.toolchain }}
       - run: cargo clippy --workspace --tests -- -D warnings
 
   test:
-    name: Tests (${{ matrix.toolchain }})
-    needs: build
+    name: Tests
     runs-on: macos-latest
-    strategy:
-      fail-fast: false
-      matrix:
-        toolchain: ['1.93.0', nightly]
-    continue-on-error: ${{ matrix.toolchain == 'nightly' }}
     steps:
       - uses: actions/checkout@v4
       - uses: dtolnay/rust-toolchain@master
         with:
-          toolchain: ${{ matrix.toolchain }}
+          toolchain: '1.93.0'
       - uses: Swatinem/rust-cache@v2
-        with:
-          key: ${{ matrix.toolchain }}
       - run: cargo test --workspace
 
   deny:
