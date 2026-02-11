@@ -8,7 +8,7 @@
 
 ## Open Issues Summary
 
-**8 open issues** across 7 phases (20 completed)
+**8 open issues** across 7 phases (21 completed)
 
 | Priority | Count | Issues |
 |----------|-------|--------|
@@ -185,13 +185,14 @@ The following capabilities already exist in the codebase:
 |---|-------|----------|--------|--------------|
 | #25 | ~~Add error handling (thiserror) and logging (tracing)~~ | :white_check_mark: Done | ~2 days | &mdash; |
 | #26 | ~~Add GitHub Actions CI pipeline~~ | :white_check_mark: Done | ~1 day | &mdash; |
+| #51 | ~~Review and optimize CI workflow for reduced overhead~~ | :white_check_mark: Done | ~0.5 day | #26 |
 | #27 | Compile fourier-core to WASM target | :large_blue_circle: Low | ~2 days | #2 |
 | #28 | Add WebAudio integration layer | :large_blue_circle: Low | ~3 days | #27 |
 | #30 | ~~Set up development infrastructure (linting, formatting, testing, CI)~~ | :white_check_mark: Done | ~2 days | &mdash; |
 
 **Key deliverables:**
 - ~~`EngineError` enum via `thiserror`, `tracing` instrumentation~~ :white_check_mark:
-- ~~CI: build, test, clippy, fmt on macOS (stable + nightly)~~ :white_check_mark:
+- ~~CI: build, test, clippy, fmt on macOS (pinned 1.93.0 only, nightly removed)~~ :white_check_mark:
 - WASM build of fourier-core with `wasm-bindgen` exports
 - AudioWorklet integration with example web page
 - ~~Dev infrastructure: `rust-toolchain.toml`, `rustfmt.toml`, workspace lints, `.editorconfig`, `deny.toml`, `Justfile`~~ :white_check_mark:
@@ -311,8 +312,9 @@ These can proceed independently alongside the critical path:
 |-------|-------|-----------|
 | 25 | #10 Spectral delay | Niche effect |
 | ~~26~~ | ~~#26 CI pipeline~~ | ~~Stable + nightly matrix, caching~~ :white_check_mark: |
-| 27 | #27 WASM compilation | Web readiness |
-| 28 | #28 WebAudio integration | Browser demo |
+| ~~27~~ | ~~#51 Optimize CI workflow~~ | ~~Drop nightly, reduce overhead~~ :white_check_mark: |
+| 28 | #27 WASM compilation | Web readiness |
+| 29 | #28 WebAudio integration | Browser demo |
 
 ---
 
@@ -326,8 +328,8 @@ These can proceed independently alongside the critical path:
 | 4 &mdash; Tauri | 4 | 0 | 0 | 0 | 0 | 4 |
 | 5 &mdash; UI | 5 | 0 | 0 | 0 | 0 | 5 |
 | 6 &mdash; Workflow | 3 | 0 | 0 | 2 | 0 | 1 |
-| 7 &mdash; Polish/Web | 5 | 0 | 0 | 0 | 2 | 3 |
-| **Total** | **28** | **0** | **0** | **5** | **3** | **20** |
+| 7 &mdash; Polish/Web | 6 | 0 | 0 | 0 | 2 | 4 |
+| **Total** | **29** | **0** | **0** | **5** | **3** | **21** |
 
 ---
 
@@ -348,6 +350,7 @@ These can proceed independently alongside the critical path:
 ## Changelog
 
 ### 2026-02-11
+- **Completed #51** (review and optimize CI workflow) &mdash; removed nightly Rust toolchain from the CI matrix for build, clippy, and test jobs; project pins Rust 1.93.0 via `rust-toolchain.toml` so nightly runs provided no meaningful signal while doubling CI cost; removed `needs: build` dependency from clippy and test jobs so all four main jobs (fmt, build, clippy, test) run in parallel; reduced CI from 8 jobs to 5 (fmt, build, clippy, test, deny); removed `fail-fast: false` and `continue-on-error` (no longer needed without matrix); kept `Swatinem/rust-cache@v2` for cargo build caching; deny job unchanged on ubuntu-latest; simplified job names (no toolchain suffix)
 - **Completed #3** (noise generators: white, pink) &mdash; created `crates/core/src/noise.rs` with `NoiseGenerator` struct and `NoiseType` enum (`White`, `Pink`); `NoiseGenerator::new(noise_type, amplitude, sample_rate)` constructor with `generate(&mut self, output: &mut [f32])` buffer-filling method; white noise via xorshift64 PRNG (deterministic, no external dependencies) mapping upper 24 bits to `[-1.0, +1.0)` float range; pink noise via Voss-McCartney algorithm with 16 octave rows, trailing-zeros scheduling for per-row update timing, normalization factor `1/(NUM_ROWS+1)`, and running-sum accumulator for O(1) per-sample generation; PRNG extracted to module-level `prng_next_u64`/`prng_next_f32` free functions to satisfy borrow checker when iterating pink rows; getter/setter methods (`set_amplitude`, `set_noise_type`, `amplitude()`, `noise_type()`, `sample_rate()`) with `const` where possible; serde `Serialize`/`Deserialize` on `NoiseType`; re-exported `NoiseGenerator` and `NoiseType` from `fourier-core` crate root; refactored `fourier-engine` to use `fourier_core::NoiseGenerator` instead of duplicating white/pink noise implementations &mdash; replaced `WhiteNoiseSource` and `PinkNoiseSource` structs in `crates/engine/src/source.rs` with unified `NoiseSource` wrapper delegating to `NoiseGenerator`; `NoiseType` in `crates/engine/src/params.rs` changed from local enum to `pub use fourier_core::NoiseType` re-export; 15 new unit tests in `fourier-core`: white noise energy, amplitude bounds, approximately flat spectrum (averaged over 32 FFT frames with octave band comparison), pink noise energy, amplitude bounds, approximately &minus;3dB/octave rolloff (averaged over 64 FFT frames across 4 octave pairs), pink more-low-than-high total energy, white-flatter-than-pink comparative spectral analysis, property getters, noise type switching, amplitude energy scaling (`0.25&sup2; = 0.0625` ratio verification), zero amplitude silence, empty buffer no-op, serde roundtrip, deterministic output; all 178 existing tests pass
 - **Completed #26** (GitHub Actions CI pipeline) &mdash; upgraded `.github/workflows/ci.yml` with stable + nightly Rust toolchain matrix; nightly jobs allowed to fail via `continue-on-error`; `dtolnay/rust-toolchain` action for explicit toolchain management; `Swatinem/rust-cache` for build caching on clippy, test, and build jobs; `fail-fast: false` ensures all matrix combinations run to completion; fmt job uses stable-only (formatting is toolchain-independent); all four required jobs (build, test, clippy, fmt) run on `macos-latest`; triggers on push to main and PRs; deny job unchanged on ubuntu-latest; CI badge already present in README.md
 - **Completed #21** (peak frequency and note detection display) &mdash; created `<TunerDisplay />` SolidJS component in `app/src/TunerDisplay.tsx` displaying detected pitch as a musical note with tuning accuracy; receives `SpectralSnapshot` via props and extracts strongest peak within 20Hz&ndash;10kHz above -60dB threshold; `tuner-utils.ts` utility module with `getTunerReading()` function performing frequency-to-MIDI conversion (`midi = 69 + 12 * log2(freq / 440)`), note name mapping via chromatic lookup table, octave calculation, and cents deviation (`(fractionalMidi - nearestMidi) * 100`); displays note label (e.g. &ldquo;A4&rdquo;, &ldquo;C#5&rdquo;), frequency in Hz, and cents deviation with color-coded visual indicator; color coding: green (#22c55e) within &pm;5 cents (in tune), yellow (#eab308) &pm;5&ndash;20 cents (close), red (#ef4444) beyond &pm;20 cents (out of tune); horizontal cents bar with centered reference marker, circular indicator sliding left/right proportional to deviation (&pm;50 cent range), smooth CSS transitions; no-signal graceful fallback showing &ldquo;--&rdquo; for note, frequency, and cents when no valid peak detected; integrated into `App.tsx` viz-stack below waveform display; styled in `styles.css` matching dark theme with `var(--border)` separator, `var(--fg)` text, and tabular-nums for stable numeric readout; `TunerReading` and `TunerColor` TypeScript types exported for potential reuse; all 164 existing tests pass; completes Phase 5 (UI Components) with all 5 issues done
