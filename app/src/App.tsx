@@ -1,20 +1,28 @@
 import { createSignal, onCleanup, onMount, type Component } from "solid-js";
-import { getSpectrum, type SpectralSnapshot } from "./bindings";
+import {
+  getSpectrum,
+  getWaveform,
+  type SpectralSnapshot,
+  type WaveformSnapshot,
+} from "./bindings";
 import ControlPanel from "./ControlPanel";
 import SpectrumAnalyzer from "./SpectrumAnalyzer";
+import WaveformDisplay from "./WaveformDisplay";
 import type { RenderMode } from "./webgl-renderer";
 
 const App: Component = () => {
   const [snapshot, setSnapshot] = createSignal<SpectralSnapshot | null>(null);
+  const [waveform, setWaveform] = createSignal<WaveformSnapshot | null>(null);
   const [renderMode, setRenderMode] = createSignal<RenderMode>("filled");
 
   let polling = true;
 
-  async function pollSpectrum(): Promise<void> {
+  async function pollData(): Promise<void> {
     while (polling) {
       try {
-        const snap = await getSpectrum();
+        const [snap, wave] = await Promise.all([getSpectrum(), getWaveform()]);
         setSnapshot(snap);
+        setWaveform(wave);
       } catch {
         // Engine not running — that's fine, keep polling
       }
@@ -24,7 +32,7 @@ const App: Component = () => {
   }
 
   onMount(() => {
-    pollSpectrum();
+    pollData();
   });
 
   onCleanup(() => {
@@ -57,7 +65,10 @@ const App: Component = () => {
         </div>
       </header>
       <div class="app-body">
-        <SpectrumAnalyzer snapshot={snapshot()} mode={renderMode()} />
+        <div class="viz-stack">
+          <SpectrumAnalyzer snapshot={snapshot()} mode={renderMode()} />
+          <WaveformDisplay waveform={waveform()} />
+        </div>
         <ControlPanel />
       </div>
     </main>
