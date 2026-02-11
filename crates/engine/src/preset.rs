@@ -4,6 +4,8 @@
 //! level so that entire sound design configurations can be stored as JSON
 //! files and recalled later.
 
+use std::sync::LazyLock;
+
 use serde::{Deserialize, Serialize};
 
 use crate::params::{SourceSpec, TransformSpec};
@@ -31,8 +33,10 @@ pub struct PresetInfo {
     pub is_factory: bool,
 }
 
-/// Returns the built-in factory presets.
-pub fn factory_presets() -> Vec<Preset> {
+/// Lazily-initialised list of built-in factory presets.
+///
+/// Allocated once on first access and shared for the lifetime of the process.
+static FACTORY_PRESETS: LazyLock<Vec<Preset>> = LazyLock::new(|| {
     vec![
         Preset {
             name: "Clean Sine".to_string(),
@@ -86,6 +90,11 @@ pub fn factory_presets() -> Vec<Preset> {
             gain: 0.4,
         },
     ]
+});
+
+/// Returns the built-in factory presets (shared static reference).
+pub fn factory_presets() -> &'static [Preset] {
+    &FACTORY_PRESETS
 }
 
 #[cfg(test)]
@@ -155,7 +164,7 @@ mod tests {
     fn factory_presets_are_valid() {
         let presets = factory_presets();
         assert_eq!(presets.len(), 5);
-        for preset in &presets {
+        for preset in presets {
             roundtrip_json(preset);
         }
     }

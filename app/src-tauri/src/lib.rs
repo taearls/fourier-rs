@@ -500,8 +500,8 @@ fn save_preset(
 #[allow(clippy::needless_pass_by_value)]
 fn load_preset(name: String) -> Result<Preset, String> {
     // Check factory presets first.
-    if let Some(preset) = factory_presets().into_iter().find(|p| p.name == name) {
-        return Ok(preset);
+    if let Some(preset) = factory_presets().iter().find(|p| p.name == name) {
+        return Ok(preset.clone());
     }
 
     // Load from user directory.
@@ -540,15 +540,26 @@ fn list_presets() -> Result<Vec<PresetInfo>, String> {
             let entry = entry.map_err(|e| format!("Failed to read directory entry: {e}"))?;
             let path = entry.path();
             if path.extension().and_then(|e| e.to_str()) == Some("json") {
-                if let Ok(json) = std::fs::read_to_string(&path) {
-                    if let Ok(preset) = serde_json::from_str::<Preset>(&json) {
-                        // Skip if a factory preset has the same name.
-                        if !presets.iter().any(|p| p.name == preset.name) {
-                            presets.push(PresetInfo {
-                                name: preset.name,
-                                is_factory: false,
-                            });
+                match std::fs::read_to_string(&path) {
+                    Ok(json) => match serde_json::from_str::<Preset>(&json) {
+                        Ok(preset) => {
+                            // Skip if a factory preset has the same name.
+                            if !presets.iter().any(|p| p.name == preset.name) {
+                                presets.push(PresetInfo {
+                                    name: preset.name,
+                                    is_factory: false,
+                                });
+                            }
                         }
+                        Err(e) => {
+                            tracing::warn!(
+                                "Skipping malformed preset file {}: {e}",
+                                path.display()
+                            );
+                        }
+                    },
+                    Err(e) => {
+                        tracing::warn!("Failed to read preset file {}: {e}", path.display());
                     }
                 }
             }

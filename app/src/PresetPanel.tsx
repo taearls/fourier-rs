@@ -95,6 +95,8 @@ const PresetPanel: Component<{
     const info = presets().find((p) => p.name === name);
     if (info?.is_factory) return;
 
+    if (!window.confirm(`Delete preset "${name}"?`)) return;
+
     await withError(async () => {
       await deletePreset(name);
       setSelected("");
