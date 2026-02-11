@@ -9,7 +9,7 @@
  * - Handles no-signal case gracefully (shows "--")
  */
 
-import { type Component } from "solid-js";
+import { createMemo, type Component } from "solid-js";
 import type { SpectralSnapshot } from "./bindings";
 import { getTunerReading, type TunerColor } from "./tuner-utils";
 
@@ -30,7 +30,13 @@ const COLOR_MAP: Record<TunerColor, string> = {
 };
 
 const TunerDisplay: Component<TunerDisplayProps> = (props) => {
-  const reading = () => getTunerReading(props.snapshot);
+  const reading = createMemo(() => getTunerReading(props.snapshot));
+
+  /** Resolved color hex for the current reading, or dim fallback. */
+  const indicatorColor = () => {
+    const r = reading();
+    return r ? COLOR_MAP[r.color] : "rgba(255, 255, 255, 0.2)";
+  };
 
   /** Format frequency for display (e.g. "440.0 Hz"). */
   const freqLabel = () => {
@@ -74,9 +80,7 @@ const TunerDisplay: Component<TunerDisplayProps> = (props) => {
             class="tuner-cents-indicator"
             style={{
               left: `${50 + centsBarOffset() * 50}%`,
-              "background-color": reading()
-                ? COLOR_MAP[reading()!.color]
-                : "rgba(255, 255, 255, 0.2)",
+              "background-color": indicatorColor(),
             }}
           />
         </div>
@@ -84,11 +88,7 @@ const TunerDisplay: Component<TunerDisplayProps> = (props) => {
           <span>-50</span>
           <span
             class="tuner-cents-value"
-            style={{
-              color: reading()
-                ? COLOR_MAP[reading()!.color]
-                : "rgba(255, 255, 255, 0.3)",
-            }}
+            style={{ color: indicatorColor() }}
           >
             {centsLabel()} ct
           </span>
