@@ -8,13 +8,13 @@
 
 ## Open Issues Summary
 
-**6 open issues** across 7 phases (23 completed)
+**5 open issues** across 7 phases (24 completed)
 
 | Priority | Count | Issues |
 |----------|-------|--------|
 | :red_circle: Critical | 0 | &mdash; |
 | :yellow_circle: High | 0 | &mdash; |
-| :green_circle: Medium | 3 | #12, #23, #24 |
+| :green_circle: Medium | 2 | #23, #24 |
 | :large_blue_circle: Low | 3 | #10, #27, #28 |
 
 ---
@@ -46,6 +46,7 @@ The following capabilities already exist in the codebase:
 - **Control panel** &mdash; `<ControlPanel />` SolidJS component with source selector (Live/Oscillator/Noise/File), oscillator waveform+frequency controls, noise type selector, WAV file picker via native dialog + seek slider + loop toggle, engine start/stop button, master gain slider
 - **Parametric EQ** &mdash; `ParametricEq` spectral transform with `EqBand` (frequency, gain_db, q, band_type) and `BandType` enum (Peak, LowShelf, HighShelf); smooth bell curves for Peak, sigmoid transitions for shelves; `TransformSpec::ParametricEq` variant with serde support and TypeScript bindings
 - **Spectral freeze** &mdash; `SpectralFreeze` implementing `SpectralTransform` with magnitude+phase capture on activation, continuous frozen spectrum output, smooth crossfade on toggle (~75ms, linear interpolation in complex domain), `TransformSpec::SpectralFreeze { frozen: bool }` variant with serde support
+- **Pitch shifting** &mdash; `PitchShift` implementing `SpectralTransform` via spectral bin rotation with linear interpolation for fractional shifts; `shift_semitones: f32` parameter (+12 = up octave, -12 = down octave); DC bin preservation; `TransformSpec::PitchShift { semitones: f32 }` variant with serde support; frontend pitch shift slider (-24 to +24 semitones) in TransformPanel
 - **Transform panel** &mdash; `<TransformPanel />` SolidJS component with transform type selector (Identity, LowPass, HighPass, BandPass, Gain, ParametricEq); per-transform parameter controls (cutoff frequency, band range, gain factor); parametric EQ per-band controls (frequency, gain dB, Q, band type) with add/remove; transform chain mode with add/remove/reorder multiple transforms; all changes immediately sent to engine via `set_transform` Tauri command
 - **Waveform oscilloscope** &mdash; `WaveformSnapshot` struct with rolling time-domain sample buffer; `get_waveform` Tauri command with drain-to-latest polling; `<WaveformDisplay />` SolidJS component with WebGL rendering, zero-crossing trigger for stable display, amplitude axis (-1 to +1), time axis (ms), responsive resize; green oscilloscope color scheme; stacked layout with spectrum analyzer
 - **Error handling &amp; logging** &mdash; `thiserror`-based error enums (`CoreError`, `AudioIoError`, `EngineError`, `FileIoError`) across all crates; no `String` error types in public APIs; `tracing` instrumentation at engine lifecycle, parameter changes, and error paths; Tauri commands convert `EngineError` to user-friendly strings
@@ -104,13 +105,13 @@ The following capabilities already exist in the codebase:
 | #9 | ~~Add parametric EQ as SpectralTransform~~ | :white_check_mark: Done | ~2 days | &mdash; |
 | #10 | Add spectral delay effect | :large_blue_circle: Low | ~2 days | &mdash; |
 | #11 | ~~Add spectral freeze/hold effect~~ | :white_check_mark: Done | ~1 day | &mdash; |
-| #12 | Add pitch shifting via spectral bin rotation | :green_circle: Medium | ~2 days | &mdash; |
+| #12 | ~~Add pitch shifting via spectral bin rotation~~ | :white_check_mark: Done | ~2 days | &mdash; |
 
 **Key deliverables:**
 - ~~`ParametricEq` with Peak/LowShelf/HighShelf bands~~ :white_check_mark:
 - `SpectralDelay` with per-band ring buffers
 - ~~`SpectralFreeze` with smooth crossfade toggle~~ :white_check_mark:
-- `PitchShift` with linear interpolation for fractional shifts
+- ~~`PitchShift` with linear interpolation for fractional shifts~~ :white_check_mark:
 
 ---
 
@@ -253,7 +254,7 @@ App shell and engine commands done. Moving to streaming and source commands:
 
 These can proceed independently alongside the critical path:
 
-- **DSP track:** ~~#9 (Parametric EQ)~~, ~~#11 (Freeze)~~, #12 (Pitch shift)
+- **DSP track:** ~~#9 (Parametric EQ)~~, ~~#11 (Freeze)~~, ~~#12 (Pitch shift)~~ :white_check_mark:
 - **File I/O track:** ~~#6~~, ~~#7~~ (WAV read/write) :white_check_mark:
 - **Polish track:** ~~#25~~, ~~#26~~ (error handling, CI) :white_check_mark:
 
@@ -307,7 +308,7 @@ These can proceed independently alongside the critical path:
 | 21 | #23 Preset system | UX polish |
 | 22 | #24 Audio export | Render to file |
 | ~~23~~ | ~~#11 Spectral freeze~~ | ~~Creative effect~~ :white_check_mark: |
-| 24 | #12 Pitch shifting | Creative effect |
+| ~~24~~ | ~~#12 Pitch shifting~~ | ~~Creative effect~~ :white_check_mark: |
 
 ### Batch 7: Future (Week 8+)
 | Order | Issue | Rationale |
@@ -326,12 +327,12 @@ These can proceed independently alongside the critical path:
 |-------|-------|----------|------|--------|-----|------|
 | 1 &mdash; Sound Gen | 4 | 0 | 0 | 0 | 0 | 4 |
 | 2 &mdash; File I/O | 3 | 0 | 0 | 0 | 0 | 3 |
-| 3 &mdash; DSP | 4 | 0 | 0 | 1 | 1 | 2 |
+| 3 &mdash; DSP | 4 | 0 | 0 | 0 | 1 | 3 |
 | 4 &mdash; Tauri | 4 | 0 | 0 | 0 | 0 | 4 |
 | 5 &mdash; UI | 5 | 0 | 0 | 0 | 0 | 5 |
 | 6 &mdash; Workflow | 3 | 0 | 0 | 2 | 0 | 1 |
 | 7 &mdash; Polish/Web | 6 | 0 | 0 | 0 | 2 | 4 |
-| **Total** | **29** | **0** | **0** | **3** | **3** | **23** |
+| **Total** | **29** | **0** | **0** | **2** | **3** | **24** |
 
 ---
 
@@ -352,6 +353,7 @@ These can proceed independently alongside the critical path:
 ## Changelog
 
 ### 2026-02-11
+- **Completed #12** (pitch shifting via spectral bin rotation) &mdash; created `PitchShift` struct implementing `SpectralTransform` in `crates/core/src/transform.rs`; remaps spectral bins using `source_bin = output_bin / 2^(semitones/12)` formula; linear interpolation of magnitude for fractional bin positions; phase taken from nearest source bin; DC bin preserved unchanged; zero-shift early-return optimization (identity); `shift_semitones: f32` parameter (+12 = up one octave, -12 = down one octave, -7 = down a fifth); `TransformSpec::PitchShift { semitones: f32 }` variant in `crates/engine/src/params.rs` with serde support; wired into `build_transform()` in `processor.rs`; re-exported `PitchShift` from `fourier-core` and `fourier-engine` crate roots; TypeScript `PitchShift` variant added to `TransformSpec` type in `app/src/bindings.ts`; `<TransformPanel />` updated with "Pitch Shift" option and semitones slider (-24 to +24 st, 0.1 step) in both single and chain modes; 10 new unit tests in `fourier-core`: up octave doubles frequency, down octave halves, down fifth, zero is identity, fractional uses interpolation, preserves DC bin, large shift clears high bins, name, empty spectrum no panic, negative fractional; 4 new serde roundtrip tests in `fourier-engine`: positive/negative semitones, in-chain, param message; 2 engine integration tests: pitch shift produces output with oscillator source, rapid pitch shift switching does not panic; all 241 tests pass
 - **Completed #11** (spectral freeze/hold effect) &mdash; created `SpectralFreeze` struct implementing `SpectralTransform` in `crates/core/src/transform.rs`; when activated (`frozen = true`), captures current spectral frame magnitudes and phases; while frozen, outputs captured spectrum instead of live input; smooth crossfade on toggle (~75ms duration) via linear interpolation in complex domain between live and frozen spectra; `crossfade_pos` ramps from 0.0 (fully live) to 1.0 (fully frozen) at a rate computed from `sample_rate / hop_size`; captured data released after unfreezing completes; `set_frozen(bool)` and `is_frozen()` accessors; `TransformSpec::SpectralFreeze { frozen: bool }` variant in `crates/engine/src/params.rs` with serde support; wired into `build_transform()` in `processor.rs` passing `sample_rate` and `hop_size` for crossfade timing; re-exported `SpectralFreeze` from `fourier-core` and `fourier-engine` crate roots; 8 new unit tests in `fourier-core`: freeze captures spectrum on activation, frozen output is stable, unfrozen passes through, crossfade is smooth (monotonically increasing), toggle off crossfades back (monotonically decreasing), getters, name, empty spectrum no panic; 4 new serde roundtrip tests in `fourier-engine`: frozen/unfrozen variants, in-chain, param message; 2 engine integration tests: freeze produces output with oscillator source, rapid freeze toggle does not panic; all 225 tests pass
 - **Completed #4** (additive synthesis module) &mdash; created `crates/core/src/additive.rs` with `Partial` struct (`frequency`, `amplitude`, `phase` fields, serde `Serialize`/`Deserialize`), `AdditiveSynth` struct with `Vec<PartialState>` runtime state and `sample_rate`, `generate(&mut self, output: &mut [f32])` method that sums sine wave partials with per-partial phase tracking (wraps at 2&pi; to prevent precision loss, continuous across calls), `harmonic_series(fundamental, num_harmonics)` helper generating partials at f, 2f, 3f, &hellip; with 1/n amplitude rolloff; `num_partials()` and `sample_rate()` getters; re-exported `Partial`, `AdditiveSynth`, `harmonic_series` from `fourier-core` crate root; moved `Partial` ownership from `fourier-engine` params to `fourier-core` additive module &mdash; engine re-exports via `pub use fourier_core::Partial`; refactored engine `AdditiveSource` to delegate to `fourier_core::AdditiveSynth` instead of inline implementation; re-exported `AdditiveSynth` from `fourier-engine` crate root; 19 new unit tests in `fourier-core`: single partial peak frequency, single partial matches sine oscillator, multiple partials have expected peaks, summing N partials produces correct output, harmonic series correct frequencies/amplitudes/zero harmonics/zero phase/spectral peaks, phase continuous across generate calls, phase continuous for multiple partials, empty partials silence, empty buffer no-op, zero amplitude silence, num_partials getter, sample_rate getter, Partial serde roundtrip, Vec&lt;Partial&gt; serde roundtrip; 2 doc tests (AdditiveSynth example, harmonic_series example); all 196 existing tests pass; completes Phase 1 (Sound Generation) with all 4 issues done
 - **Completed #51** (review and optimize CI workflow) &mdash; removed nightly Rust toolchain from the CI matrix for build, clippy, and test jobs; project pins Rust 1.93.0 via `rust-toolchain.toml` so nightly runs provided no meaningful signal while doubling CI cost; removed `needs: build` dependency from clippy and test jobs so all four main jobs (fmt, build, clippy, test) run in parallel; reduced CI from 8 jobs to 5 (fmt, build, clippy, test, deny); removed `fail-fast: false` and `continue-on-error` (no longer needed without matrix); kept `Swatinem/rust-cache@v2` for cargo build caching; deny job unchanged on ubuntu-latest; simplified job names (no toolchain suffix)

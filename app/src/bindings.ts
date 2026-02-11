@@ -41,6 +41,7 @@ export type TransformSpec =
   | { type: "BandPass"; value: { low_hz: number; high_hz: number } }
   | { type: "Gain"; value: { factor: number } }
   | { type: "ParametricEq"; value: { bands: EqBand[] } }
+  | { type: "PitchShift"; value: { semitones: number } }
   | { type: "Chain"; value: TransformSpec[] };
 
 // ---------------------------------------------------------------------------

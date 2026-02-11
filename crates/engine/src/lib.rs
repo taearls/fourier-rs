@@ -13,7 +13,7 @@ pub mod source;
 
 pub use error::EngineError;
 pub use fourier_core::{
-    AdditiveSynth, BandType, EqBand, NoiseGenerator, SpectralFreeze, WaveformType,
+    AdditiveSynth, BandType, EqBand, NoiseGenerator, PitchShift, SpectralFreeze, WaveformType,
 };
 pub use params::{EngineParams, NoiseType, ParamMessage, Partial, SourceSpec, TransformSpec};
 pub use processor::{Engine, SpectralSnapshot, WaveformSnapshot};

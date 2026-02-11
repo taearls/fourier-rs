@@ -16,7 +16,8 @@ type TransformType =
   | "HighPass"
   | "BandPass"
   | "Gain"
-  | "ParametricEq";
+  | "ParametricEq"
+  | "PitchShift";
 
 interface ChainEntry {
   id: number;
@@ -53,6 +54,8 @@ const TransformPanel: Component<{ running: boolean }> = (props) => {
   const [gainFactor, setGainFactor] = createSignal(1.0);
   // ParametricEq bands
   const [eqBands, setEqBands] = createSignal<EqBand[]>([defaultBand()]);
+  // PitchShift semitones
+  const [pitchSemitones, setPitchSemitones] = createSignal(0);
 
   // --- Chain state ---------------------------------------------------------
   const [chainEnabled, setChainEnabled] = createSignal(false);
@@ -67,6 +70,9 @@ const TransformPanel: Component<{ running: boolean }> = (props) => {
   const [chainGains, setChainGains] = createSignal<Record<number, number>>({});
   const [chainEqBands, setChainEqBands] = createSignal<
     Record<number, EqBand[]>
+  >({});
+  const [chainPitchSemitones, setChainPitchSemitones] = createSignal<
+    Record<number, number>
   >({});
 
   // -----------------------------------------------------------------------
@@ -105,6 +111,7 @@ const TransformPanel: Component<{ running: boolean }> = (props) => {
     high: number,
     gain: number,
     bands: EqBand[],
+    pitch: number,
   ): TransformSpec {
     switch (type) {
       case "Identity":
@@ -125,6 +132,8 @@ const TransformPanel: Component<{ running: boolean }> = (props) => {
         return { type: "Gain", value: { factor: gain } };
       case "ParametricEq":
         return { type: "ParametricEq", value: { bands } };
+      case "PitchShift":
+        return { type: "PitchShift", value: { semitones: pitch } };
     }
   }
 
@@ -137,6 +146,7 @@ const TransformPanel: Component<{ running: boolean }> = (props) => {
         highHz(),
         gainFactor(),
         eqBands(),
+        pitchSemitones(),
       );
     }
 
@@ -153,6 +163,7 @@ const TransformPanel: Component<{ running: boolean }> = (props) => {
         chainHighs()[entry.id] ?? 3000,
         chainGains()[entry.id] ?? 1.0,
         chainEqBands()[entry.id] ?? [defaultBand()],
+        chainPitchSemitones()[entry.id] ?? 0,
       ),
     );
 
@@ -199,6 +210,11 @@ const TransformPanel: Component<{ running: boolean }> = (props) => {
 
   async function handleGainFactorChange(v: number): Promise<void> {
     setGainFactor(v);
+    await applyTransform();
+  }
+
+  async function handlePitchSemitonesChange(v: number): Promise<void> {
+    setPitchSemitones(v);
     await applyTransform();
   }
 
@@ -253,6 +269,7 @@ const TransformPanel: Component<{ running: boolean }> = (props) => {
     setChainHighs((prev) => removeKey(prev, id));
     setChainGains((prev) => removeKey(prev, id));
     setChainEqBands((prev) => removeKey(prev, id));
+    setChainPitchSemitones((prev) => removeKey(prev, id));
     await applyTransform();
   }
 
@@ -282,7 +299,7 @@ const TransformPanel: Component<{ running: boolean }> = (props) => {
 
   async function handleChainParam(
     id: number,
-    param: "cutoff" | "low" | "high" | "gain",
+    param: "cutoff" | "low" | "high" | "gain" | "pitch",
     value: number,
   ): Promise<void> {
     switch (param) {
@@ -297,6 +314,9 @@ const TransformPanel: Component<{ running: boolean }> = (props) => {
         break;
       case "gain":
         setChainGains((prev) => ({ ...prev, [id]: value }));
+        break;
+      case "pitch":
+        setChainPitchSemitones((prev) => ({ ...prev, [id]: value }));
         break;
     }
     await applyTransform();
@@ -356,6 +376,8 @@ const TransformPanel: Component<{ running: boolean }> = (props) => {
       onBandChange: (i: number, field: keyof EqBand, v: number | BandType) => void;
       onAddBand: () => void;
       onRemoveBand: (i: number) => void;
+      pitch: number;
+      onPitch: (v: number) => void;
     },
   ): JSX.Element {
     return (
@@ -514,6 +536,24 @@ const TransformPanel: Component<{ running: boolean }> = (props) => {
             </button>
           </div>
         </Show>
+
+        <Show when={type === "PitchShift"}>
+          <div class="cp-field">
+            <label>Shift</label>
+            <input
+              type="range"
+              min="-24"
+              max="24"
+              step="0.1"
+              value={opts.pitch}
+              onInput={(e) => opts.onPitch(parseFloat(e.currentTarget.value))}
+            />
+            <span class="tp-value">
+              {opts.pitch > 0 ? "+" : ""}
+              {opts.pitch.toFixed(1)} st
+            </span>
+          </div>
+        </Show>
       </>
     );
   }
@@ -565,6 +605,7 @@ const TransformPanel: Component<{ running: boolean }> = (props) => {
               <option value="BandPass">Band Pass</option>
               <option value="Gain">Gain</option>
               <option value="ParametricEq">Parametric EQ</option>
+              <option value="PitchShift">Pitch Shift</option>
             </select>
           </div>
 
@@ -581,6 +622,8 @@ const TransformPanel: Component<{ running: boolean }> = (props) => {
             onBandChange: (i, field, v) => handleBandChange(i, field, v),
             onAddBand: () => addBand(),
             onRemoveBand: (i) => removeBand(i),
+            pitch: pitchSemitones(),
+            onPitch: (v) => handlePitchSemitonesChange(v),
           })}
         </section>
       </Show>
@@ -609,6 +652,7 @@ const TransformPanel: Component<{ running: boolean }> = (props) => {
                     <option value="BandPass">Band Pass</option>
                     <option value="Gain">Gain</option>
                     <option value="ParametricEq">Parametric EQ</option>
+                    <option value="PitchShift">Pitch Shift</option>
                   </select>
                   <div class="tp-chain-actions">
                     <button
@@ -652,6 +696,8 @@ const TransformPanel: Component<{ running: boolean }> = (props) => {
                       handleChainBandChange(entry.id, i, field, v),
                     onAddBand: () => addChainBand(entry.id),
                     onRemoveBand: (i) => removeChainBand(entry.id, i),
+                    pitch: chainPitchSemitones()[entry.id] ?? 0,
+                    onPitch: (v) => handleChainParam(entry.id, "pitch", v),
                   })}
                 </div>
               </div>

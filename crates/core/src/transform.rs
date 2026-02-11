@@ -393,6 +393,85 @@ impl SpectralTransform for SpectralFreeze {
     }
 }
 
+// ---------------------------------------------------------------------------
+// Pitch Shift
+// ---------------------------------------------------------------------------
+
+/// Spectral pitch shifter: remaps frequency bins to shift pitch up or down.
+///
+/// Uses the formula `source_bin = output_bin / 2^(semitones/12)` to remap
+/// spectral bins. Linear interpolation is used for fractional bin positions
+/// to avoid audible artifacts.
+///
+/// - `+12` semitones shifts up one octave (doubles all frequencies).
+/// - `-12` semitones shifts down one octave (halves all frequencies).
+/// - `0` semitones is identity (no change).
+pub struct PitchShift {
+    /// Pitch shift amount in semitones.
+    pub shift_semitones: f32,
+}
+
+impl PitchShift {
+    pub const fn new(shift_semitones: f32) -> Self {
+        Self { shift_semitones }
+    }
+}
+
+impl SpectralTransform for PitchShift {
+    fn process(&mut self, spectrum: &mut [Complex<f32>], _sample_rate: f32, _fft_size: usize) {
+        let num_bins = spectrum.len();
+        if num_bins == 0 {
+            return;
+        }
+
+        // No shift: identity.
+        if self.shift_semitones.abs() < 1e-6 {
+            return;
+        }
+
+        let shift_ratio = (self.shift_semitones / 12.0).exp2();
+        let mut shifted = vec![Complex::new(0.0, 0.0); num_bins];
+
+        // For each output bin, find the corresponding source bin.
+        // source_bin = output_bin / shift_ratio
+        for (i, out_bin) in shifted.iter_mut().enumerate().skip(1) {
+            let src_idx = i as f32 / shift_ratio;
+
+            // Source bin out of range — leave output bin at zero.
+            if src_idx < 0.0 || src_idx >= (num_bins - 1) as f32 {
+                continue;
+            }
+
+            let src_floor = src_idx.floor() as usize;
+            let src_ceil = (src_floor + 1).min(num_bins - 1);
+            let frac = src_idx - src_floor as f32;
+
+            // Linear interpolation of magnitude.
+            let mag_a = spectrum[src_floor].norm();
+            let mag_b = spectrum[src_ceil].norm();
+            let mag = mag_a.mul_add(1.0 - frac, mag_b * frac);
+
+            // Phase from nearest source bin.
+            let phase = if frac < 0.5 {
+                spectrum[src_floor].arg()
+            } else {
+                spectrum[src_ceil].arg()
+            };
+
+            *out_bin = FrequencyBin::from_polar(mag, phase);
+        }
+
+        // Preserve DC bin (bin 0) — pitch shifting doesn't affect DC.
+        shifted[0] = spectrum[0];
+
+        spectrum.copy_from_slice(&shifted);
+    }
+
+    fn name(&self) -> &'static str {
+        "Pitch Shift"
+    }
+}
+
 /// Chain of transforms applied in sequence.
 pub struct TransformChain {
     transforms: Vec<Box<dyn SpectralTransform>>,
@@ -1039,5 +1118,221 @@ mod tests {
         let mut spectrum: Vec<Complex<f32>> = Vec::new();
         // Should not panic on empty spectrum.
         freeze.process(&mut spectrum, 44100.0, 0);
+    }
+
+    // -----------------------------------------------------------------------
+    // PitchShift tests
+    // -----------------------------------------------------------------------
+
+    /// Helper: create a spectrum with a single peak at the given frequency.
+    fn make_sine_spectrum(freq_hz: f32, sample_rate: f32, fft_size: usize) -> Vec<Complex<f32>> {
+        let num_bins = fft_size / 2 + 1;
+        let bin_width = sample_rate / fft_size as f32;
+        let target_bin = (freq_hz / bin_width).round() as usize;
+
+        let mut spectrum = vec![Complex::new(0.0, 0.0); num_bins];
+        if target_bin < num_bins {
+            spectrum[target_bin] = Complex::new(1.0, 0.0);
+        }
+        spectrum
+    }
+
+    /// Helper: find the bin index with the largest magnitude (excluding DC).
+    fn find_peak_bin(spectrum: &[Complex<f32>]) -> usize {
+        spectrum
+            .iter()
+            .enumerate()
+            .skip(1) // skip DC
+            .max_by(|(_, a), (_, b)| a.norm().partial_cmp(&b.norm()).unwrap())
+            .map(|(i, _)| i)
+            .unwrap()
+    }
+
+    #[test]
+    fn pitch_shift_up_octave_doubles_frequency() {
+        let sample_rate = 44100.0;
+        let fft_size = 4096;
+        let bin_width = sample_rate / fft_size as f32;
+
+        let mut spectrum = make_sine_spectrum(440.0, sample_rate, fft_size);
+        let mut ps = PitchShift::new(12.0); // +12 semitones = one octave up
+
+        ps.process(&mut spectrum, sample_rate, fft_size);
+
+        let peak_bin = find_peak_bin(&spectrum);
+        let peak_freq = peak_bin as f32 * bin_width;
+
+        // +12 semitones should move 440 Hz to ~880 Hz.
+        assert!(
+            (peak_freq - 880.0).abs() < bin_width * 2.0,
+            "expected peak near 880 Hz, got {peak_freq:.1} Hz (bin {peak_bin})"
+        );
+    }
+
+    #[test]
+    fn pitch_shift_down_octave_halves_frequency() {
+        let sample_rate = 44100.0;
+        let fft_size = 4096;
+        let bin_width = sample_rate / fft_size as f32;
+
+        let mut spectrum = make_sine_spectrum(880.0, sample_rate, fft_size);
+        let mut ps = PitchShift::new(-12.0); // -12 semitones = one octave down
+
+        ps.process(&mut spectrum, sample_rate, fft_size);
+
+        let peak_bin = find_peak_bin(&spectrum);
+        let peak_freq = peak_bin as f32 * bin_width;
+
+        // -12 semitones should move 880 Hz to ~440 Hz.
+        assert!(
+            (peak_freq - 440.0).abs() < bin_width * 2.0,
+            "expected peak near 440 Hz, got {peak_freq:.1} Hz (bin {peak_bin})"
+        );
+    }
+
+    #[test]
+    fn pitch_shift_down_fifth() {
+        let sample_rate = 44100.0;
+        let fft_size = 4096;
+        let bin_width = sample_rate / fft_size as f32;
+
+        let mut spectrum = make_sine_spectrum(440.0, sample_rate, fft_size);
+        let mut ps = PitchShift::new(-7.0); // -7 semitones = down a fifth
+
+        ps.process(&mut spectrum, sample_rate, fft_size);
+
+        let peak_bin = find_peak_bin(&spectrum);
+        let peak_freq = peak_bin as f32 * bin_width;
+        let expected = 440.0 * 2.0_f32.powf(-7.0 / 12.0); // ~293.66 Hz
+
+        assert!(
+            (peak_freq - expected).abs() < bin_width * 2.0,
+            "expected peak near {expected:.1} Hz, got {peak_freq:.1} Hz"
+        );
+    }
+
+    #[test]
+    fn pitch_shift_zero_is_identity() {
+        let sample_rate = 44100.0;
+        let fft_size = 1024;
+
+        let original = make_sine_spectrum(440.0, sample_rate, fft_size);
+        let mut spectrum = original.clone();
+        let mut ps = PitchShift::new(0.0);
+
+        ps.process(&mut spectrum, sample_rate, fft_size);
+
+        // With 0 shift, spectrum should be unchanged.
+        for (i, (orig, shifted)) in original.iter().zip(&spectrum).enumerate() {
+            assert!(
+                (orig.re - shifted.re).abs() < 1e-6 && (orig.im - shifted.im).abs() < 1e-6,
+                "bin {i}: zero shift should be identity"
+            );
+        }
+    }
+
+    #[test]
+    fn pitch_shift_fractional_uses_interpolation() {
+        let sample_rate = 44100.0;
+        let fft_size = 4096;
+        let bin_width = sample_rate / fft_size as f32;
+
+        let mut spectrum = make_sine_spectrum(440.0, sample_rate, fft_size);
+        let mut ps = PitchShift::new(1.0); // +1 semitone
+
+        ps.process(&mut spectrum, sample_rate, fft_size);
+
+        let peak_bin = find_peak_bin(&spectrum);
+        let peak_freq = peak_bin as f32 * bin_width;
+        let expected = 440.0 * 2.0_f32.powf(1.0 / 12.0); // ~466.16 Hz
+
+        assert!(
+            (peak_freq - expected).abs() < bin_width * 2.0,
+            "expected peak near {expected:.1} Hz, got {peak_freq:.1} Hz"
+        );
+
+        // Verify the peak magnitude is nonzero (interpolation produced a value).
+        assert!(
+            spectrum[peak_bin].norm() > 0.1,
+            "interpolated peak should have significant magnitude"
+        );
+    }
+
+    #[test]
+    fn pitch_shift_preserves_dc_bin() {
+        let sample_rate = 44100.0;
+        let fft_size = 1024;
+        let num_bins = fft_size / 2 + 1;
+
+        let mut spectrum = vec![Complex::new(0.0, 0.0); num_bins];
+        spectrum[0] = Complex::new(0.5, 0.0); // DC offset
+
+        let original_dc = spectrum[0];
+        let mut ps = PitchShift::new(7.0);
+
+        ps.process(&mut spectrum, sample_rate, fft_size);
+
+        assert!(
+            (spectrum[0].re - original_dc.re).abs() < 1e-6
+                && (spectrum[0].im - original_dc.im).abs() < 1e-6,
+            "DC bin should be preserved"
+        );
+    }
+
+    #[test]
+    fn pitch_shift_large_up_shift_clears_high_bins() {
+        let sample_rate = 44100.0;
+        let fft_size = 1024;
+        let num_bins = fft_size / 2 + 1;
+
+        // Place a peak near Nyquist.
+        let mut spectrum = vec![Complex::new(0.0, 0.0); num_bins];
+        spectrum[num_bins - 2] = Complex::new(1.0, 0.0);
+
+        let mut ps = PitchShift::new(12.0); // +12 up
+        ps.process(&mut spectrum, sample_rate, fft_size);
+
+        // The original peak was near Nyquist; shifting up should push it out of range.
+        // Most bins should be zero (except DC which is preserved).
+        let energy: f32 = spectrum[1..].iter().map(|c| c.norm()).sum();
+        assert!(
+            energy < 0.01,
+            "shifting near-Nyquist peak up should produce near-zero energy, got {energy}"
+        );
+    }
+
+    #[test]
+    fn pitch_shift_name() {
+        let ps = PitchShift::new(5.0);
+        assert_eq!(ps.name(), "Pitch Shift");
+    }
+
+    #[test]
+    fn pitch_shift_empty_spectrum_no_panic() {
+        let mut ps = PitchShift::new(12.0);
+        let mut spectrum: Vec<Complex<f32>> = Vec::new();
+        // Should not panic on empty spectrum.
+        ps.process(&mut spectrum, 44100.0, 0);
+    }
+
+    #[test]
+    fn pitch_shift_negative_fractional() {
+        let sample_rate = 44100.0;
+        let fft_size = 4096;
+        let bin_width = sample_rate / fft_size as f32;
+
+        let mut spectrum = make_sine_spectrum(1000.0, sample_rate, fft_size);
+        let mut ps = PitchShift::new(-3.5); // -3.5 semitones
+
+        ps.process(&mut spectrum, sample_rate, fft_size);
+
+        let peak_bin = find_peak_bin(&spectrum);
+        let peak_freq = peak_bin as f32 * bin_width;
+        let expected = 1000.0 * 2.0_f32.powf(-3.5 / 12.0);
+
+        assert!(
+            (peak_freq - expected).abs() < bin_width * 2.0,
+            "expected peak near {expected:.1} Hz, got {peak_freq:.1} Hz"
+        );
     }
 }
