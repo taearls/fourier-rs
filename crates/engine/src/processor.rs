@@ -247,11 +247,13 @@ fn now_ms() -> f64 {
 }
 
 /// Append samples to the rolling waveform buffer for oscilloscope display.
+///
+/// `write_pos` wraps within `[0, capacity)` to avoid unbounded growth.
 fn waveform_buf_push(buf: &mut [f32], write_pos: &mut usize, count: &mut usize, samples: &[f32]) {
     let capacity = buf.len();
     for &s in samples {
-        buf[*write_pos % capacity] = s;
-        *write_pos += 1;
+        buf[*write_pos] = s;
+        *write_pos = (*write_pos + 1) % capacity;
         *count += 1;
     }
 }
@@ -312,11 +314,14 @@ fn build_waveform_snapshot(
         return None;
     }
 
-    let start = if waveform_sample_count >= capacity {
-        waveform_write_pos % capacity
-    } else {
-        0
-    };
+    // Cap to ~50ms of audio to reduce IPC payload (matches frontend display window).
+    #[allow(clippy::cast_possible_truncation, clippy::cast_sign_loss)]
+    let max_display_samples = (sample_rate * 0.05).round() as usize;
+    let total = total.min(max_display_samples);
+
+    // write_pos is always < capacity (wraps via modular arithmetic).
+    // Read the most recent `total` samples ending at write_pos.
+    let start = (waveform_write_pos + capacity - total) % capacity;
     let mut samples = Vec::with_capacity(total);
     for i in 0..total {
         samples.push(waveform_buf[(start + i) % capacity]);

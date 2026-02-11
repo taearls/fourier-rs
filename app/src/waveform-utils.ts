@@ -39,7 +39,7 @@ export function buildWaveformVertices(
   const vertices = new Float32Array(displayCount * 2);
 
   for (let i = 0; i < displayCount; i++) {
-    const x = (i / (displayCount - 1)) * 2 - 1; // [0, 1] -> [-1, 1]
+    const x = displayCount === 1 ? 0 : (i / (displayCount - 1)) * 2 - 1; // [0, 1] -> [-1, 1]
     const y = Math.max(-1, Math.min(1, samples[triggerOffset + i])); // clamp amplitude
     vertices[i * 2] = x;
     vertices[i * 2 + 1] = y;
@@ -48,14 +48,5 @@ export function buildWaveformVertices(
   return vertices;
 }
 
-/** Time-axis tick marks for the overlay (ms). */
-export const TIME_TICKS_MS = [0, 5, 10, 15, 20, 25, 30, 35, 40, 45];
-
 /** Amplitude-axis tick marks. */
 export const AMP_TICKS = [-1.0, -0.5, 0, 0.5, 1.0];
-
-/** Format a time value in ms for display. */
-export function formatTimeMs(ms: number): string {
-  if (ms === 0) return "0";
-  return `${ms}`;
-}
