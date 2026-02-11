@@ -11,8 +11,8 @@ use fourier_audio_io::ring_buffer::{AudioRingBuffer, RingConsumer, RingProducer}
 use fourier_core::overlap_add::{OlaConfig, OverlapAddProcessor};
 use fourier_core::spectral::{detect_peaks, SpectralPeak};
 use fourier_core::transform::{
-    BandPassFilter, HighPassFilter, IdentityTransform, LowPassFilter, ParametricEq, SpectralGain,
-    SpectralTransform, TransformChain,
+    BandPassFilter, HighPassFilter, IdentityTransform, LowPassFilter, ParametricEq, SpectralFreeze,
+    SpectralGain, SpectralTransform, TransformChain,
 };
 
 use crate::error::EngineError;
@@ -214,7 +214,11 @@ impl Drop for Engine {
 }
 
 /// Build a concrete `SpectralTransform` from a `TransformSpec`.
-fn build_transform(spec: &TransformSpec) -> Box<dyn SpectralTransform> {
+fn build_transform(
+    spec: &TransformSpec,
+    sample_rate: f32,
+    hop_size: usize,
+) -> Box<dyn SpectralTransform> {
     match spec {
         TransformSpec::Identity => Box::new(IdentityTransform),
         TransformSpec::LowPass { cutoff_hz } => Box::new(LowPassFilter {
@@ -229,10 +233,13 @@ fn build_transform(spec: &TransformSpec) -> Box<dyn SpectralTransform> {
         }),
         TransformSpec::Gain { factor } => Box::new(SpectralGain { gain: *factor }),
         TransformSpec::ParametricEq { bands } => Box::new(ParametricEq::new(bands.clone())),
+        TransformSpec::SpectralFreeze { frozen } => {
+            Box::new(SpectralFreeze::new(*frozen, sample_rate, hop_size))
+        }
         TransformSpec::Chain(specs) => {
             let mut chain = TransformChain::new();
             for s in specs {
-                chain.push(build_transform(s));
+                chain.push(build_transform(s, sample_rate, hop_size));
             }
             Box::new(chain)
         }
@@ -388,7 +395,7 @@ fn processing_loop(
                 ParamMessage::SetPeakThreshold(t) => params.peak_threshold_db = t,
                 ParamMessage::SetTransform(spec) => {
                     tracing::debug!("Transform changed");
-                    transform = build_transform(&spec);
+                    transform = build_transform(&spec, config.sample_rate, config.hop_size);
                 }
                 ParamMessage::SetSource(spec) => {
                     tracing::debug!("Audio source changed");
@@ -1277,6 +1284,72 @@ mod tests {
                         },
                     ],
                 })
+                .unwrap();
+            engine.set_transform(TransformSpec::Identity).unwrap();
+        }
+
+        thread::sleep(std::time::Duration::from_millis(50));
+        engine.shutdown();
+    }
+
+    // --- SpectralFreeze integration tests ---
+
+    #[test]
+    fn engine_spectral_freeze_produces_output() {
+        let fft_size = 1024;
+        let hop_size = 512;
+        let sample_rate = 44100.0;
+
+        let (engine, io) = Engine::new(sample_rate, fft_size, hop_size).unwrap();
+
+        // Use oscillator source to provide consistent input.
+        engine
+            .set_source(SourceSpec::Oscillator {
+                waveform: fourier_core::WaveformType::Sine,
+                frequency: 440.0,
+                amplitude: 1.0,
+            })
+            .unwrap();
+
+        // Let oscillator run to generate spectral content.
+        thread::sleep(std::time::Duration::from_millis(100));
+
+        // Activate spectral freeze.
+        engine
+            .set_transform(TransformSpec::SpectralFreeze { frozen: true })
+            .unwrap();
+
+        let mut consumer = io.output_consumer;
+        thread::sleep(std::time::Duration::from_millis(200));
+
+        let mut output = vec![0.0_f32; 8192];
+        let n = consumer.pop_slice(&mut output);
+
+        assert!(n > 0, "spectral freeze should produce output");
+        let energy: f32 = output[..n].iter().map(|s| s * s).sum();
+        assert!(
+            energy > 0.0,
+            "spectral freeze output should have nonzero energy"
+        );
+
+        engine.shutdown();
+    }
+
+    #[test]
+    fn engine_spectral_freeze_switch_does_not_panic() {
+        let fft_size = 256;
+        let hop_size = 128;
+        let sample_rate = 44100.0;
+
+        let (engine, _io) = Engine::new(sample_rate, fft_size, hop_size).unwrap();
+
+        // Rapidly toggle freeze on/off — should not panic or deadlock.
+        for _ in 0..10 {
+            engine
+                .set_transform(TransformSpec::SpectralFreeze { frozen: true })
+                .unwrap();
+            engine
+                .set_transform(TransformSpec::SpectralFreeze { frozen: false })
                 .unwrap();
             engine.set_transform(TransformSpec::Identity).unwrap();
         }
