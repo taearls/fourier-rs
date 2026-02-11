@@ -147,6 +147,7 @@ pub enum TransformSpec {
     BandPass { low_hz: f32, high_hz: f32 },
     Gain { factor: f32 },
     ParametricEq { bands: Vec<EqBand> },
+    SpectralFreeze { frozen: bool },
     Chain(Vec<Self>),
 }
 
@@ -524,6 +525,47 @@ mod tests {
                 assert_eq!(bands[0].band_type, BandType::HighShelf);
             }
             other => panic!("expected SetTransform(ParametricEq), got {other:?}"),
+        }
+    }
+
+    // --- SpectralFreeze TransformSpec roundtrips ---
+
+    #[test]
+    fn transform_spec_spectral_freeze_frozen_roundtrip() {
+        let spec = TransformSpec::SpectralFreeze { frozen: true };
+        let json = roundtrip_json(&spec);
+        assert!(json.contains("SpectralFreeze"));
+        assert!(json.contains("true"));
+    }
+
+    #[test]
+    fn transform_spec_spectral_freeze_unfrozen_roundtrip() {
+        let spec = TransformSpec::SpectralFreeze { frozen: false };
+        let json = roundtrip_json(&spec);
+        assert!(json.contains("SpectralFreeze"));
+        assert!(json.contains("false"));
+    }
+
+    #[test]
+    fn transform_spec_spectral_freeze_in_chain_roundtrip() {
+        let spec = TransformSpec::Chain(vec![
+            TransformSpec::SpectralFreeze { frozen: true },
+            TransformSpec::Gain { factor: 0.5 },
+        ]);
+        roundtrip_json(&spec);
+    }
+
+    #[test]
+    fn param_message_set_spectral_freeze_roundtrip() {
+        let msg = ParamMessage::SetTransform(TransformSpec::SpectralFreeze { frozen: true });
+        let json = serde_json::to_string_pretty(&msg).unwrap();
+        assert!(json.contains("SpectralFreeze"));
+        let recovered: ParamMessage = serde_json::from_str(&json).unwrap();
+        match recovered {
+            ParamMessage::SetTransform(TransformSpec::SpectralFreeze { frozen }) => {
+                assert!(frozen);
+            }
+            other => panic!("expected SetTransform(SpectralFreeze), got {other:?}"),
         }
     }
 }

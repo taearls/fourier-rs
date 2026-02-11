@@ -271,6 +271,128 @@ impl SpectralTransform for ParametricEq {
     }
 }
 
+// ---------------------------------------------------------------------------
+// Spectral Freeze
+// ---------------------------------------------------------------------------
+
+/// Spectral freeze: captures the current spectrum and continuously
+/// resynthesizes it as a sustained sound.
+///
+/// When activated (`frozen = true`), the transform captures the current
+/// spectral frame (magnitudes + phases). While frozen, it outputs the
+/// captured spectrum instead of the live input, with a smooth crossfade
+/// on toggle to avoid clicks.
+///
+/// This is a **spectral snapshot** freeze: the exact magnitudes and phases
+/// from the capture moment are replayed each frame. Because the phases are
+/// static, the resulting tone has a characteristic "metallic" or "resonant"
+/// quality rather than a natural pad-like sustain.
+pub struct SpectralFreeze {
+    /// Whether the freeze effect is active.
+    frozen: bool,
+    /// Whether a spectrum has been captured for the current freeze activation.
+    has_captured: bool,
+    /// Captured spectrum (magnitudes) from the moment of freeze activation.
+    captured_magnitudes: Vec<f32>,
+    /// Captured spectrum (phases) from the moment of freeze activation.
+    captured_phases: Vec<f32>,
+    /// Current crossfade position: 0.0 = fully live, 1.0 = fully frozen.
+    crossfade_pos: f32,
+    /// Crossfade increment per frame, computed from sample rate and FFT/hop sizes.
+    /// Targets ~75ms crossfade duration.
+    crossfade_step: f32,
+}
+
+impl SpectralFreeze {
+    /// Create a new spectral freeze effect.
+    ///
+    /// - `frozen`: initial freeze state.
+    /// - `sample_rate`: audio sample rate in Hz.
+    /// - `hop_size`: OLA hop size (frames between successive FFT windows).
+    pub fn new(frozen: bool, sample_rate: f32, hop_size: usize) -> Self {
+        // Target crossfade duration: ~75ms.
+        // Frames per second = sample_rate / hop_size.
+        // Number of frames in 75ms = (sample_rate / hop_size) * 0.075.
+        // Step per frame = 1.0 / num_frames.
+        let frames_per_sec = sample_rate / hop_size as f32;
+        let crossfade_frames = (frames_per_sec * 0.075).max(1.0);
+        let crossfade_step = 1.0 / crossfade_frames;
+
+        Self {
+            frozen,
+            has_captured: false,
+            captured_magnitudes: Vec::new(),
+            captured_phases: Vec::new(),
+            crossfade_pos: if frozen { 1.0 } else { 0.0 },
+            crossfade_step,
+        }
+    }
+
+    /// Set the freeze state. When transitioning to frozen, the next call
+    /// to `process` will capture the spectrum.
+    pub const fn set_frozen(&mut self, frozen: bool) {
+        if frozen && !self.frozen {
+            self.has_captured = false;
+        }
+        self.frozen = frozen;
+    }
+
+    /// Returns whether the freeze is currently active.
+    pub const fn is_frozen(&self) -> bool {
+        self.frozen
+    }
+}
+
+impl SpectralTransform for SpectralFreeze {
+    fn process(&mut self, spectrum: &mut [Complex<f32>], _sample_rate: f32, _fft_size: usize) {
+        // Update crossfade position toward target.
+        let target = if self.frozen { 1.0 } else { 0.0 };
+        if (self.crossfade_pos - target).abs() > f32::EPSILON {
+            if self.crossfade_pos < target {
+                self.crossfade_pos = (self.crossfade_pos + self.crossfade_step).min(1.0);
+            } else {
+                self.crossfade_pos = (self.crossfade_pos - self.crossfade_step).max(0.0);
+            }
+        }
+
+        // Capture spectrum when transitioning to frozen (first frame after activation).
+        if self.frozen && !self.has_captured {
+            self.captured_magnitudes = spectrum.iter().map(|c| c.norm()).collect();
+            self.captured_phases = spectrum.iter().map(|c| c.arg()).collect();
+            self.has_captured = true;
+        }
+
+        // If we have no captured data yet, pass through.
+        if !self.has_captured {
+            return;
+        }
+
+        // If fully live (crossfade = 0), nothing to do.
+        if self.crossfade_pos < f32::EPSILON {
+            // When unfrozen and crossfade complete, release captured data.
+            if !self.frozen {
+                self.captured_magnitudes.clear();
+                self.captured_phases.clear();
+                self.has_captured = false;
+            }
+            return;
+        }
+
+        // Interpolate between live spectrum and captured spectrum.
+        let mix = self.crossfade_pos;
+        for (i, bin) in spectrum.iter_mut().enumerate() {
+            let frozen_bin =
+                FrequencyBin::from_polar(self.captured_magnitudes[i], self.captured_phases[i]);
+            // Linear interpolation in complex domain for smooth crossfade.
+            *bin = *bin * (1.0 - mix) + frozen_bin * mix;
+        }
+    }
+
+    fn name(&self) -> &'static str {
+        "Spectral Freeze"
+    }
+}
+
 /// Chain of transforms applied in sequence.
 pub struct TransformChain {
     transforms: Vec<Box<dyn SpectralTransform>>,
@@ -685,5 +807,237 @@ mod tests {
         for bin in &spectrum {
             assert!((bin.re - 1.0).abs() < 1e-6);
         }
+    }
+
+    // -----------------------------------------------------------------------
+    // SpectralFreeze tests
+    // -----------------------------------------------------------------------
+
+    /// Helper: create a known spectrum with distinct magnitudes per bin.
+    fn make_known_spectrum(num_bins: usize) -> Vec<Complex<f32>> {
+        (0..num_bins)
+            .map(|i| {
+                let mag = (i as f32 + 1.0) * 0.1;
+                let phase = (i as f32) * 0.5;
+                FrequencyBin::from_polar(mag, phase)
+            })
+            .collect()
+    }
+
+    #[test]
+    fn freeze_captures_spectrum_on_activation() {
+        let sample_rate = 44100.0;
+        let fft_size = 1024;
+        let hop_size = 512;
+        let num_bins = fft_size / 2 + 1;
+
+        // Create a freeze that starts frozen.
+        let mut freeze = SpectralFreeze::new(true, sample_rate, hop_size);
+        let mut spectrum = make_known_spectrum(num_bins);
+        let original_mags: Vec<f32> = spectrum.iter().map(|c| c.norm()).collect();
+
+        // Process once to capture.
+        freeze.process(&mut spectrum, sample_rate, fft_size);
+
+        // After enough frames to fully crossfade, the output should match captured.
+        // Run many frames to complete the crossfade.
+        for _ in 0..200 {
+            // Feed a different spectrum (zeros) — freeze should ignore it.
+            let mut zero_input = vec![Complex::new(0.0, 0.0); num_bins];
+            freeze.process(&mut zero_input, sample_rate, fft_size);
+
+            // Once fully frozen, output should match the captured spectrum.
+            if (freeze.crossfade_pos - 1.0).abs() < f32::EPSILON {
+                for (i, bin) in zero_input.iter().enumerate() {
+                    let expected_mag = original_mags[i];
+                    let actual_mag = bin.norm();
+                    assert!(
+                        (actual_mag - expected_mag).abs() < 0.01,
+                        "bin {i}: expected mag {expected_mag:.4}, got {actual_mag:.4}"
+                    );
+                }
+                return;
+            }
+        }
+
+        panic!("crossfade did not complete");
+    }
+
+    #[test]
+    fn freeze_output_is_stable() {
+        let sample_rate = 44100.0;
+        let fft_size = 1024;
+        let hop_size = 512;
+        let num_bins = fft_size / 2 + 1;
+
+        let mut freeze = SpectralFreeze::new(true, sample_rate, hop_size);
+
+        // Capture a known spectrum.
+        let mut frame = make_known_spectrum(num_bins);
+        freeze.process(&mut frame, sample_rate, fft_size);
+
+        // Run until fully frozen.
+        for _ in 0..200 {
+            frame = vec![Complex::new(0.0, 0.0); num_bins];
+            freeze.process(&mut frame, sample_rate, fft_size);
+        }
+
+        // Capture the frozen output.
+        let mut frozen_a = vec![Complex::new(0.0, 0.0); num_bins];
+        freeze.process(&mut frozen_a, sample_rate, fft_size);
+
+        let mut frozen_b = vec![Complex::new(0.0, 0.0); num_bins];
+        freeze.process(&mut frozen_b, sample_rate, fft_size);
+
+        // Both should be identical (stable output).
+        for (i, (a, b)) in frozen_a.iter().zip(&frozen_b).enumerate() {
+            assert!(
+                (a.re - b.re).abs() < 1e-6 && (a.im - b.im).abs() < 1e-6,
+                "bin {i}: frozen output should be stable, got ({}, {}) vs ({}, {})",
+                a.re,
+                a.im,
+                b.re,
+                b.im
+            );
+        }
+    }
+
+    #[test]
+    fn freeze_unfrozen_passes_through() {
+        let sample_rate = 44100.0;
+        let fft_size = 1024;
+        let hop_size = 512;
+        let num_bins = fft_size / 2 + 1;
+
+        // Start unfrozen.
+        let mut freeze = SpectralFreeze::new(false, sample_rate, hop_size);
+
+        let original: Vec<Complex<f32>> = (0..num_bins)
+            .map(|i| Complex::new(i as f32 * 0.01, -(i as f32) * 0.005))
+            .collect();
+        let mut spectrum = original.clone();
+
+        freeze.process(&mut spectrum, sample_rate, fft_size);
+
+        // Should be pass-through (identical to input).
+        for (i, (orig, out)) in original.iter().zip(&spectrum).enumerate() {
+            assert!(
+                (orig.re - out.re).abs() < 1e-6 && (orig.im - out.im).abs() < 1e-6,
+                "bin {i}: unfrozen should pass through"
+            );
+        }
+    }
+
+    #[test]
+    fn freeze_crossfade_is_smooth() {
+        let sample_rate = 44100.0;
+        let fft_size = 1024;
+        let hop_size = 512;
+        let num_bins = fft_size / 2 + 1;
+
+        let mut freeze = SpectralFreeze::new(false, sample_rate, hop_size);
+
+        // Process a few frames unfrozen.
+        for _ in 0..5 {
+            let mut spectrum = make_known_spectrum(num_bins);
+            freeze.process(&mut spectrum, sample_rate, fft_size);
+        }
+
+        // Activate freeze.
+        freeze.set_frozen(true);
+
+        // Track crossfade values — they should monotonically increase.
+        let mut prev_pos = 0.0_f32;
+        for _ in 0..200 {
+            let mut spectrum = vec![Complex::new(0.0, 0.0); num_bins];
+            freeze.process(&mut spectrum, sample_rate, fft_size);
+
+            assert!(
+                freeze.crossfade_pos >= prev_pos - f32::EPSILON,
+                "crossfade should increase monotonically: {} -> {}",
+                prev_pos,
+                freeze.crossfade_pos
+            );
+            prev_pos = freeze.crossfade_pos;
+
+            if (freeze.crossfade_pos - 1.0).abs() < f32::EPSILON {
+                break;
+            }
+        }
+
+        assert!(
+            (freeze.crossfade_pos - 1.0).abs() < f32::EPSILON,
+            "crossfade should reach 1.0"
+        );
+    }
+
+    #[test]
+    fn freeze_toggle_off_crossfades_back() {
+        let sample_rate = 44100.0;
+        let fft_size = 1024;
+        let hop_size = 512;
+        let num_bins = fft_size / 2 + 1;
+
+        let mut freeze = SpectralFreeze::new(true, sample_rate, hop_size);
+
+        // Capture and complete crossfade to frozen.
+        for _ in 0..200 {
+            let mut spectrum = make_known_spectrum(num_bins);
+            freeze.process(&mut spectrum, sample_rate, fft_size);
+        }
+        assert!(
+            (freeze.crossfade_pos - 1.0).abs() < f32::EPSILON,
+            "should be fully frozen"
+        );
+
+        // Now unfreeze.
+        freeze.set_frozen(false);
+
+        // Crossfade should decrease back to 0.
+        let mut prev_pos = 1.0_f32;
+        for _ in 0..200 {
+            let mut spectrum = make_known_spectrum(num_bins);
+            freeze.process(&mut spectrum, sample_rate, fft_size);
+
+            assert!(
+                freeze.crossfade_pos <= prev_pos + f32::EPSILON,
+                "crossfade should decrease: {} -> {}",
+                prev_pos,
+                freeze.crossfade_pos
+            );
+            prev_pos = freeze.crossfade_pos;
+
+            if freeze.crossfade_pos < f32::EPSILON {
+                break;
+            }
+        }
+
+        assert!(
+            freeze.crossfade_pos < f32::EPSILON,
+            "crossfade should reach 0.0 after unfreezing"
+        );
+    }
+
+    #[test]
+    fn freeze_getters() {
+        let freeze = SpectralFreeze::new(true, 44100.0, 512);
+        assert!(freeze.is_frozen());
+
+        let freeze2 = SpectralFreeze::new(false, 44100.0, 512);
+        assert!(!freeze2.is_frozen());
+    }
+
+    #[test]
+    fn freeze_name() {
+        let freeze = SpectralFreeze::new(false, 44100.0, 512);
+        assert_eq!(freeze.name(), "Spectral Freeze");
+    }
+
+    #[test]
+    fn freeze_empty_spectrum_no_panic() {
+        let mut freeze = SpectralFreeze::new(true, 44100.0, 512);
+        let mut spectrum: Vec<Complex<f32>> = Vec::new();
+        // Should not panic on empty spectrum.
+        freeze.process(&mut spectrum, 44100.0, 0);
     }
 }

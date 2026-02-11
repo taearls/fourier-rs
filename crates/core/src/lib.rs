@@ -21,5 +21,7 @@ pub use noise::{NoiseGenerator, NoiseType};
 pub use oscillator::{Oscillator, WaveformType};
 pub use overlap_add::OverlapAddProcessor;
 pub use spectral::{detect_peaks, SpectralPeak};
-pub use transform::{BandType, EqBand, FrequencyBin, ParametricEq, SpectralTransform};
+pub use transform::{
+    BandType, EqBand, FrequencyBin, ParametricEq, SpectralFreeze, SpectralTransform,
+};
 pub use window::{WindowFunction, WindowType};
