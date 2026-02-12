@@ -1,6 +1,6 @@
 # Fourier-RS Roadmap
 
-> **Last updated:** 2026-02-11
+> **Last updated:** 2026-02-12
 >
 > Real-time audio DSP framework &rarr; Tauri desktop synthesizer with Fourier analysis
 
@@ -8,14 +8,14 @@
 
 ## Open Issues Summary
 
-**3 open issues** across 7 phases (26 completed)
+**2 open issues** across 7 phases (27 completed)
 
 | Priority | Count | Issues |
 |----------|-------|--------|
 | :red_circle: Critical | 0 | &mdash; |
 | :yellow_circle: High | 0 | &mdash; |
 | :green_circle: Medium | 0 | &mdash; |
-| :large_blue_circle: Low | 3 | #10, #27, #28 |
+| :large_blue_circle: Low | 2 | #27, #28 |
 
 ---
 
@@ -47,6 +47,7 @@ The following capabilities already exist in the codebase:
 - **Parametric EQ** &mdash; `ParametricEq` spectral transform with `EqBand` (frequency, gain_db, q, band_type) and `BandType` enum (Peak, LowShelf, HighShelf); smooth bell curves for Peak, sigmoid transitions for shelves; `TransformSpec::ParametricEq` variant with serde support and TypeScript bindings
 - **Spectral freeze** &mdash; `SpectralFreeze` implementing `SpectralTransform` with magnitude+phase capture on activation, continuous frozen spectrum output, smooth crossfade on toggle (~75ms, linear interpolation in complex domain), `TransformSpec::SpectralFreeze { frozen: bool }` variant with serde support
 - **Pitch shifting** &mdash; `PitchShift` implementing `SpectralTransform` via spectral bin rotation with linear interpolation for fractional shifts; `shift_semitones: f32` parameter (+12 = up octave, -12 = down octave); DC bin preservation; `TransformSpec::PitchShift { semitones: f32 }` variant with serde support; frontend pitch shift slider (-24 to +24 semitones) in TransformPanel
+- **Spectral delay** &mdash; `SpectralDelay` implementing `SpectralTransform` with per-frame ring buffer delay; parameters: `delay_frames: usize` (1&ndash;64), `feedback: f32` (0.0&ndash;0.95 for decaying repetitions), `mix: f32` (0.0&ndash;1.0 dry/wet blend); lazy buffer initialization; `TransformSpec::SpectralDelay` variant with serde support; frontend controls (frames slider, feedback %, mix %) in TransformPanel
 - **Transform panel** &mdash; `<TransformPanel />` SolidJS component with transform type selector (Identity, LowPass, HighPass, BandPass, Gain, ParametricEq); per-transform parameter controls (cutoff frequency, band range, gain factor); parametric EQ per-band controls (frequency, gain dB, Q, band type) with add/remove; transform chain mode with add/remove/reorder multiple transforms; all changes immediately sent to engine via `set_transform` Tauri command
 - **Waveform oscilloscope** &mdash; `WaveformSnapshot` struct with rolling time-domain sample buffer; `get_waveform` Tauri command with drain-to-latest polling; `<WaveformDisplay />` SolidJS component with WebGL rendering, zero-crossing trigger for stable display, amplitude axis (-1 to +1), time axis (ms), responsive resize; green oscilloscope color scheme; stacked layout with spectrum analyzer
 - **Error handling &amp; logging** &mdash; `thiserror`-based error enums (`CoreError`, `AudioIoError`, `EngineError`, `FileIoError`) across all crates; no `String` error types in public APIs; `tracing` instrumentation at engine lifecycle, parameter changes, and error paths; Tauri commands convert `EngineError` to user-friendly strings
@@ -100,18 +101,18 @@ The following capabilities already exist in the codebase:
 
 > **Goal:** Richer spectral processing: EQ, delay, freeze, pitch shift
 >
-> **Effort:** ~2 weeks &bull; **Status:** In progress
+> **Effort:** ~2 weeks &bull; **Status:** :white_check_mark: Complete
 
 | # | Title | Priority | Effort | Dependencies |
 |---|-------|----------|--------|--------------|
 | #9 | ~~Add parametric EQ as SpectralTransform~~ | :white_check_mark: Done | ~2 days | &mdash; |
-| #10 | Add spectral delay effect | :large_blue_circle: Low | ~2 days | &mdash; |
+| #10 | ~~Add spectral delay effect~~ | :white_check_mark: Done | ~2 days | &mdash; |
 | #11 | ~~Add spectral freeze/hold effect~~ | :white_check_mark: Done | ~1 day | &mdash; |
 | #12 | ~~Add pitch shifting via spectral bin rotation~~ | :white_check_mark: Done | ~2 days | &mdash; |
 
 **Key deliverables:**
 - ~~`ParametricEq` with Peak/LowShelf/HighShelf bands~~ :white_check_mark:
-- `SpectralDelay` with per-band ring buffers
+- ~~`SpectralDelay` with per-frame ring buffers~~ :white_check_mark:
 - ~~`SpectralFreeze` with smooth crossfade toggle~~ :white_check_mark:
 - ~~`PitchShift` with linear interpolation for fractional shifts~~ :white_check_mark:
 
@@ -256,7 +257,7 @@ App shell and engine commands done. Moving to streaming and source commands:
 
 These can proceed independently alongside the critical path:
 
-- **DSP track:** ~~#9 (Parametric EQ)~~, ~~#11 (Freeze)~~, ~~#12 (Pitch shift)~~ :white_check_mark:
+- **DSP track:** ~~#9 (Parametric EQ)~~, ~~#10 (Spectral delay)~~, ~~#11 (Freeze)~~, ~~#12 (Pitch shift)~~ :white_check_mark:
 - **File I/O track:** ~~#6~~, ~~#7~~ (WAV read/write) :white_check_mark:
 - **Polish track:** ~~#25~~, ~~#26~~ (error handling, CI) :white_check_mark:
 
@@ -315,7 +316,7 @@ These can proceed independently alongside the critical path:
 ### Batch 7: Future (Week 8+)
 | Order | Issue | Rationale |
 |-------|-------|-----------|
-| 25 | #10 Spectral delay | Niche effect |
+| ~~25~~ | ~~#10 Spectral delay~~ | ~~Niche effect~~ :white_check_mark: |
 | ~~26~~ | ~~#26 CI pipeline~~ | ~~Stable + nightly matrix, caching~~ :white_check_mark: |
 | ~~27~~ | ~~#51 Optimize CI workflow~~ | ~~Drop nightly, reduce overhead~~ :white_check_mark: |
 | 28 | #27 WASM compilation | Web readiness |
@@ -329,12 +330,12 @@ These can proceed independently alongside the critical path:
 |-------|-------|----------|------|--------|-----|------|
 | 1 &mdash; Sound Gen | 4 | 0 | 0 | 0 | 0 | 4 |
 | 2 &mdash; File I/O | 3 | 0 | 0 | 0 | 0 | 3 |
-| 3 &mdash; DSP | 4 | 0 | 0 | 0 | 1 | 3 |
+| 3 &mdash; DSP | 4 | 0 | 0 | 0 | 0 | 4 |
 | 4 &mdash; Tauri | 4 | 0 | 0 | 0 | 0 | 4 |
 | 5 &mdash; UI | 5 | 0 | 0 | 0 | 0 | 5 |
 | 6 &mdash; Workflow | 3 | 0 | 0 | 0 | 0 | 3 |
 | 7 &mdash; Polish/Web | 6 | 0 | 0 | 0 | 2 | 4 |
-| **Total** | **29** | **0** | **0** | **0** | **3** | **26** |
+| **Total** | **29** | **0** | **0** | **0** | **2** | **27** |
 
 ---
 
@@ -353,6 +354,9 @@ These can proceed independently alongside the critical path:
 ---
 
 ## Changelog
+
+### 2026-02-12
+- **Completed #10** (spectral delay effect) &mdash; created `SpectralDelay` struct implementing `SpectralTransform` in `crates/core/src/transform.rs`; stores past spectral frames in a ring buffer and mixes delayed spectrum with current input; parameters: `delay_frames: usize` (number of spectral frames to delay, &ge;1), `feedback: f32` (clamped to 0.0&ndash;0.95, feeds output back into delay line for decaying repetitions), `mix: f32` (clamped to 0.0&ndash;1.0, dry/wet blend); lazy ring buffer initialization on first `process()` call (adapts to any FFT size); output formula: `output = dry * (1-mix) + delayed * mix`; delay line stores `input + delayed * feedback` for each frame; ring buffer wraps correctly with modular arithmetic; `TransformSpec::SpectralDelay { delay_frames, feedback, mix }` variant in `crates/engine/src/params.rs` with full serde support; wired into `build_transform()` in `processor.rs`; re-exported `SpectralDelay` from `fourier-core` and `fourier-engine` crate roots; TypeScript `SpectralDelay` variant added to `TransformSpec` type in `app/src/bindings.ts`; `<TransformPanel />` updated with "Spectral Delay" option and controls: frames slider (1&ndash;64), feedback slider (0&ndash;95%), mix slider (0&ndash;100%) in both single and chain modes; 9 new unit tests in `fourier-core`: delay delays spectrum, dry/wet mix, feedback produces decay, ring buffer wraps, feedback clamped, mix clamped, zero delay frames clamped, name, empty spectrum no panic; 3 new serde roundtrip tests in `fourier-engine`: SpectralDelay spec, in-chain, param message; 2 engine integration tests: spectral delay produces output with oscillator source, rapid parameter switching does not panic; all 275 tests pass; completes Phase 3 (Enhanced DSP) with all 4 issues done
 
 ### 2026-02-11
 - **Completed #24** (audio export &mdash; render engine output to WAV) &mdash; created `crates/engine/src/export.rs` with `render_offline()` function for offline OLA rendering completely independent of the live engine (no shared state, no ring buffers); `RenderConfig` struct with `sample_rate`, `fft_size`, and `output_gain` fields; builds its own OLA processor, source, and transform from specs; processes audio in hop-sized chunks, applies output gain, and reports progress via callback every ~1%; `compute_total_frames()` determines render length from audio buffer frame count or duration * sample rate; `SilenceSource` fallback for `LiveInput` during offline render; feeds extra input (`total_frames + fft_size`) to account for OLA pipeline latency; safety valve prevents infinite loops if pipeline never produces output; `export_audio` synchronous Tauri command in `app/src-tauri/src/lib.rs` (Tauri v2 runs sync commands on thread pool, keeping live audio uninterrupted); validates sample rate &gt; 0, FFT size &ge; 2 and power of two, duration &gt; 0, gain &ge; 0; emits `export-progress` events via `app.emit()` for frontend progress tracking; writes output via `fourier_file_io::save_wav()` with `WavFormat::I16`; `ExportProgress` struct for event payload; TypeScript bindings in `app/src/bindings.ts`: `ExportProgress` interface, `exportAudio()` wrapper (path, source, transform, gain, duration, sample rate, FFT size), `onExportProgress()` event listener returning `UnlistenFn`; frontend export UI in `<ControlPanel />`: duration input (0.1&ndash;600s, shown for non-file sources), "Export WAV" button opening native save dialog via `@tauri-apps/plugin-dialog` `save()`, progress bar with percentage during export, disabled button during export; CSS styles for export panel (`.cp-export`, `.cp-export-progress`, `.cp-export-progress-bar`); added `core:event:default` and `dialog:allow-save` to Tauri capabilities; 13 new unit tests in `fourier-engine`: oscillator/noise/audio buffer render output, live input silence, transform chain, progress callback fires, progress reaches 100%, output gain applied, zero frames, pitch shift, compute_total_frames variants; made `build_transform` public in `processor.rs` for export module access; all 261 tests pass; completes Phase 6 (Sound Design Workflow) with all 3 issues done

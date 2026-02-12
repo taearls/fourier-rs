@@ -22,6 +22,7 @@ pub use oscillator::{Oscillator, WaveformType};
 pub use overlap_add::OverlapAddProcessor;
 pub use spectral::{detect_peaks, SpectralPeak};
 pub use transform::{
-    BandType, EqBand, FrequencyBin, ParametricEq, PitchShift, SpectralFreeze, SpectralTransform,
+    BandType, EqBand, FrequencyBin, ParametricEq, PitchShift, SpectralDelay, SpectralFreeze,
+    SpectralTransform,
 };
 pub use window::{WindowFunction, WindowType};

@@ -17,7 +17,8 @@ type TransformType =
   | "BandPass"
   | "Gain"
   | "ParametricEq"
-  | "PitchShift";
+  | "PitchShift"
+  | "SpectralDelay";
 
 interface ChainEntry {
   id: number;
@@ -60,6 +61,10 @@ const TransformPanel: Component<{
   const [eqBands, setEqBands] = createSignal<EqBand[]>([defaultBand()]);
   // PitchShift semitones
   const [pitchSemitones, setPitchSemitones] = createSignal(0);
+  // SpectralDelay
+  const [delayFrames, setDelayFrames] = createSignal(8);
+  const [delayFeedback, setDelayFeedback] = createSignal(0.5);
+  const [delayMix, setDelayMix] = createSignal(0.5);
 
   // --- Chain state ---------------------------------------------------------
   const [chainEnabled, setChainEnabled] = createSignal(false);
@@ -76,6 +81,15 @@ const TransformPanel: Component<{
     Record<number, EqBand[]>
   >({});
   const [chainPitchSemitones, setChainPitchSemitones] = createSignal<
+    Record<number, number>
+  >({});
+  const [chainDelayFrames, setChainDelayFrames] = createSignal<
+    Record<number, number>
+  >({});
+  const [chainDelayFeedback, setChainDelayFeedback] = createSignal<
+    Record<number, number>
+  >({});
+  const [chainDelayMix, setChainDelayMix] = createSignal<
     Record<number, number>
   >({});
 
@@ -108,50 +122,68 @@ const TransformPanel: Component<{
   // Build TransformSpec
   // -----------------------------------------------------------------------
 
+  interface SingleSpecParams {
+    cutoff: number;
+    low: number;
+    high: number;
+    gain: number;
+    bands: EqBand[];
+    pitch: number;
+    dFrames: number;
+    dFeedback: number;
+    dMix: number;
+  }
+
   function buildSingleSpec(
     type: TransformType,
-    cutoff: number,
-    low: number,
-    high: number,
-    gain: number,
-    bands: EqBand[],
-    pitch: number,
+    p: SingleSpecParams,
   ): TransformSpec {
     switch (type) {
       case "Identity":
         return { type: "Identity" };
       case "LowPass":
-        return { type: "LowPass", value: { cutoff_hz: cutoff } };
+        return { type: "LowPass", value: { cutoff_hz: p.cutoff } };
       case "HighPass":
-        return { type: "HighPass", value: { cutoff_hz: cutoff } };
+        return { type: "HighPass", value: { cutoff_hz: p.cutoff } };
       case "BandPass":
         return {
           type: "BandPass",
           value: {
-            low_hz: Math.min(low, high),
-            high_hz: Math.max(low, high),
+            low_hz: Math.min(p.low, p.high),
+            high_hz: Math.max(p.low, p.high),
           },
         };
       case "Gain":
-        return { type: "Gain", value: { factor: gain } };
+        return { type: "Gain", value: { factor: p.gain } };
       case "ParametricEq":
-        return { type: "ParametricEq", value: { bands } };
+        return { type: "ParametricEq", value: { bands: p.bands } };
       case "PitchShift":
-        return { type: "PitchShift", value: { semitones: pitch } };
+        return { type: "PitchShift", value: { semitones: p.pitch } };
+      case "SpectralDelay":
+        return {
+          type: "SpectralDelay",
+          value: {
+            delay_frames: Math.round(p.dFrames),
+            feedback: p.dFeedback,
+            mix: p.dMix,
+          },
+        };
     }
   }
 
   function buildSpec(): TransformSpec {
     if (!chainEnabled()) {
-      return buildSingleSpec(
-        transformType(),
-        cutoffHz(),
-        lowHz(),
-        highHz(),
-        gainFactor(),
-        eqBands(),
-        pitchSemitones(),
-      );
+      return buildSingleSpec(transformType(), {
+        cutoff: cutoffHz(),
+        low: lowHz(),
+        high: highHz(),
+        gain: gainFactor(),
+        bands: eqBands(),
+        pitch: pitchSemitones(),
+        dFrames: delayFrames(),
+        dFeedback: delayFeedback(),
+        dMix: delayMix(),
+      });
     }
 
     const entries = chain();
@@ -160,15 +192,17 @@ const TransformPanel: Component<{
     }
 
     const specs = entries.map((entry) =>
-      buildSingleSpec(
-        entry.transformType,
-        chainCutoffs()[entry.id] ?? 1000,
-        chainLows()[entry.id] ?? 300,
-        chainHighs()[entry.id] ?? 3000,
-        chainGains()[entry.id] ?? 1.0,
-        chainEqBands()[entry.id] ?? [defaultBand()],
-        chainPitchSemitones()[entry.id] ?? 0,
-      ),
+      buildSingleSpec(entry.transformType, {
+        cutoff: chainCutoffs()[entry.id] ?? 1000,
+        low: chainLows()[entry.id] ?? 300,
+        high: chainHighs()[entry.id] ?? 3000,
+        gain: chainGains()[entry.id] ?? 1.0,
+        bands: chainEqBands()[entry.id] ?? [defaultBand()],
+        pitch: chainPitchSemitones()[entry.id] ?? 0,
+        dFrames: chainDelayFrames()[entry.id] ?? 8,
+        dFeedback: chainDelayFeedback()[entry.id] ?? 0.5,
+        dMix: chainDelayMix()[entry.id] ?? 0.5,
+      }),
     );
 
     if (specs.length === 1) {
@@ -225,6 +259,12 @@ const TransformPanel: Component<{
         setTransformType("PitchShift");
         setPitchSemitones(spec.value.semitones);
         break;
+      case "SpectralDelay":
+        setTransformType("SpectralDelay");
+        setDelayFrames(spec.value.delay_frames);
+        setDelayFeedback(spec.value.feedback);
+        setDelayMix(spec.value.mix);
+        break;
       case "Chain":
         // Enable chain mode and populate entries.
         setChainEnabled(true);
@@ -235,6 +275,9 @@ const TransformPanel: Component<{
         const newGains: Record<number, number> = {};
         const newBands: Record<number, EqBand[]> = {};
         const newPitch: Record<number, number> = {};
+        const newDelayFrames: Record<number, number> = {};
+        const newDelayFeedback: Record<number, number> = {};
+        const newDelayMix: Record<number, number> = {};
 
         for (const item of spec.value) {
           const id = nextChainId++;
@@ -266,6 +309,12 @@ const TransformPanel: Component<{
               transformType = "PitchShift";
               newPitch[id] = item.value.semitones;
               break;
+            case "SpectralDelay":
+              transformType = "SpectralDelay";
+              newDelayFrames[id] = item.value.delay_frames;
+              newDelayFeedback[id] = item.value.feedback;
+              newDelayMix[id] = item.value.mix;
+              break;
           }
           entries.push({ id, transformType });
         }
@@ -277,6 +326,9 @@ const TransformPanel: Component<{
         setChainGains(newGains);
         setChainEqBands(newBands);
         setChainPitchSemitones(newPitch);
+        setChainDelayFrames(newDelayFrames);
+        setChainDelayFeedback(newDelayFeedback);
+        setChainDelayMix(newDelayMix);
         break;
     }
 
@@ -324,6 +376,21 @@ const TransformPanel: Component<{
 
   async function handlePitchSemitonesChange(v: number): Promise<void> {
     setPitchSemitones(v);
+    await applyTransform();
+  }
+
+  async function handleDelayFramesChange(v: number): Promise<void> {
+    setDelayFrames(v);
+    await applyTransform();
+  }
+
+  async function handleDelayFeedbackChange(v: number): Promise<void> {
+    setDelayFeedback(v);
+    await applyTransform();
+  }
+
+  async function handleDelayMixChange(v: number): Promise<void> {
+    setDelayMix(v);
     await applyTransform();
   }
 
@@ -379,6 +446,9 @@ const TransformPanel: Component<{
     setChainGains((prev) => removeKey(prev, id));
     setChainEqBands((prev) => removeKey(prev, id));
     setChainPitchSemitones((prev) => removeKey(prev, id));
+    setChainDelayFrames((prev) => removeKey(prev, id));
+    setChainDelayFeedback((prev) => removeKey(prev, id));
+    setChainDelayMix((prev) => removeKey(prev, id));
     await applyTransform();
   }
 
@@ -408,7 +478,7 @@ const TransformPanel: Component<{
 
   async function handleChainParam(
     id: number,
-    param: "cutoff" | "low" | "high" | "gain" | "pitch",
+    param: "cutoff" | "low" | "high" | "gain" | "pitch" | "delayFrames" | "delayFeedback" | "delayMix",
     value: number,
   ): Promise<void> {
     switch (param) {
@@ -426,6 +496,15 @@ const TransformPanel: Component<{
         break;
       case "pitch":
         setChainPitchSemitones((prev) => ({ ...prev, [id]: value }));
+        break;
+      case "delayFrames":
+        setChainDelayFrames((prev) => ({ ...prev, [id]: value }));
+        break;
+      case "delayFeedback":
+        setChainDelayFeedback((prev) => ({ ...prev, [id]: value }));
+        break;
+      case "delayMix":
+        setChainDelayMix((prev) => ({ ...prev, [id]: value }));
         break;
     }
     await applyTransform();
@@ -487,6 +566,12 @@ const TransformPanel: Component<{
       onRemoveBand: (i: number) => void;
       pitch: number;
       onPitch: (v: number) => void;
+      dFrames: number;
+      onDFrames: (v: number) => void;
+      dFeedback: number;
+      onDFeedback: (v: number) => void;
+      dMix: number;
+      onDMix: (v: number) => void;
     },
   ): JSX.Element {
     return (
@@ -663,6 +748,45 @@ const TransformPanel: Component<{
             </span>
           </div>
         </Show>
+
+        <Show when={type === "SpectralDelay"}>
+          <div class="cp-field">
+            <label>Frames</label>
+            <input
+              type="range"
+              min="1"
+              max="64"
+              step="1"
+              value={opts.dFrames}
+              onInput={(e) => opts.onDFrames(parseFloat(e.currentTarget.value))}
+            />
+            <span class="tp-value">{Math.round(opts.dFrames)}</span>
+          </div>
+          <div class="cp-field">
+            <label>Feedback</label>
+            <input
+              type="range"
+              min="0"
+              max="0.95"
+              step="0.01"
+              value={opts.dFeedback}
+              onInput={(e) => opts.onDFeedback(parseFloat(e.currentTarget.value))}
+            />
+            <span class="tp-value">{(opts.dFeedback * 100).toFixed(0)}%</span>
+          </div>
+          <div class="cp-field">
+            <label>Mix</label>
+            <input
+              type="range"
+              min="0"
+              max="1"
+              step="0.01"
+              value={opts.dMix}
+              onInput={(e) => opts.onDMix(parseFloat(e.currentTarget.value))}
+            />
+            <span class="tp-value">{(opts.dMix * 100).toFixed(0)}%</span>
+          </div>
+        </Show>
       </>
     );
   }
@@ -715,6 +839,7 @@ const TransformPanel: Component<{
               <option value="Gain">Gain</option>
               <option value="ParametricEq">Parametric EQ</option>
               <option value="PitchShift">Pitch Shift</option>
+              <option value="SpectralDelay">Spectral Delay</option>
             </select>
           </div>
 
@@ -733,6 +858,12 @@ const TransformPanel: Component<{
             onRemoveBand: (i) => removeBand(i),
             pitch: pitchSemitones(),
             onPitch: (v) => handlePitchSemitonesChange(v),
+            dFrames: delayFrames(),
+            onDFrames: (v) => handleDelayFramesChange(v),
+            dFeedback: delayFeedback(),
+            onDFeedback: (v) => handleDelayFeedbackChange(v),
+            dMix: delayMix(),
+            onDMix: (v) => handleDelayMixChange(v),
           })}
         </section>
       </Show>
@@ -762,6 +893,7 @@ const TransformPanel: Component<{
                     <option value="Gain">Gain</option>
                     <option value="ParametricEq">Parametric EQ</option>
                     <option value="PitchShift">Pitch Shift</option>
+                    <option value="SpectralDelay">Spectral Delay</option>
                   </select>
                   <div class="tp-chain-actions">
                     <button
@@ -807,6 +939,12 @@ const TransformPanel: Component<{
                     onRemoveBand: (i) => removeChainBand(entry.id, i),
                     pitch: chainPitchSemitones()[entry.id] ?? 0,
                     onPitch: (v) => handleChainParam(entry.id, "pitch", v),
+                    dFrames: chainDelayFrames()[entry.id] ?? 8,
+                    onDFrames: (v) => handleChainParam(entry.id, "delayFrames", v),
+                    dFeedback: chainDelayFeedback()[entry.id] ?? 0.5,
+                    onDFeedback: (v) => handleChainParam(entry.id, "delayFeedback", v),
+                    dMix: chainDelayMix()[entry.id] ?? 0.5,
+                    onDMix: (v) => handleChainParam(entry.id, "delayMix", v),
                   })}
                 </div>
               </div>

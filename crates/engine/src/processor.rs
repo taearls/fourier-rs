@@ -12,7 +12,7 @@ use fourier_core::overlap_add::{OlaConfig, OverlapAddProcessor};
 use fourier_core::spectral::{detect_peaks, SpectralPeak};
 use fourier_core::transform::{
     BandPassFilter, HighPassFilter, IdentityTransform, LowPassFilter, ParametricEq, PitchShift,
-    SpectralFreeze, SpectralGain, SpectralTransform, TransformChain,
+    SpectralDelay, SpectralFreeze, SpectralGain, SpectralTransform, TransformChain,
 };
 
 use crate::error::EngineError;
@@ -237,6 +237,11 @@ pub fn build_transform(
             Box::new(SpectralFreeze::new(*frozen, sample_rate, hop_size))
         }
         TransformSpec::PitchShift { semitones } => Box::new(PitchShift::new(*semitones)),
+        TransformSpec::SpectralDelay {
+            delay_frames,
+            feedback,
+            mix,
+        } => Box::new(SpectralDelay::new(*delay_frames, *feedback, *mix)),
         TransformSpec::Chain(specs) => {
             let mut chain = TransformChain::new();
             for s in specs {
@@ -1414,6 +1419,77 @@ mod tests {
         for semitones in [-12.0, -7.0, -1.0, 0.0, 1.0, 5.0, 7.0, 12.0, 24.0] {
             engine
                 .set_transform(TransformSpec::PitchShift { semitones })
+                .unwrap();
+        }
+        engine.set_transform(TransformSpec::Identity).unwrap();
+
+        thread::sleep(std::time::Duration::from_millis(50));
+        engine.shutdown();
+    }
+
+    // --- SpectralDelay integration tests ---
+
+    #[test]
+    fn engine_spectral_delay_produces_output() {
+        let fft_size = 1024;
+        let hop_size = 512;
+        let sample_rate = 44100.0;
+
+        let (engine, io) = Engine::new(sample_rate, fft_size, hop_size).unwrap();
+
+        // Use oscillator source at 440 Hz.
+        engine
+            .set_source(SourceSpec::Oscillator {
+                waveform: fourier_core::WaveformType::Sine,
+                frequency: 440.0,
+                amplitude: 1.0,
+            })
+            .unwrap();
+
+        // Let oscillator run to fill the OLA pipeline.
+        thread::sleep(std::time::Duration::from_millis(100));
+
+        // Apply spectral delay.
+        engine
+            .set_transform(TransformSpec::SpectralDelay {
+                delay_frames: 4,
+                feedback: 0.5,
+                mix: 0.5,
+            })
+            .unwrap();
+
+        let mut consumer = io.output_consumer;
+        thread::sleep(std::time::Duration::from_millis(200));
+
+        let mut output = vec![0.0_f32; 8192];
+        let n = consumer.pop_slice(&mut output);
+
+        assert!(n > 0, "spectral delay should produce output");
+        let energy: f32 = output[..n].iter().map(|s| s * s).sum();
+        assert!(
+            energy > 0.0,
+            "spectral delay output should have nonzero energy"
+        );
+
+        engine.shutdown();
+    }
+
+    #[test]
+    fn engine_spectral_delay_switch_does_not_panic() {
+        let fft_size = 256;
+        let hop_size = 128;
+        let sample_rate = 44100.0;
+
+        let (engine, _io) = Engine::new(sample_rate, fft_size, hop_size).unwrap();
+
+        // Rapidly switch spectral delay parameters — should not panic or deadlock.
+        for frames in [1, 2, 4, 8, 16, 32] {
+            engine
+                .set_transform(TransformSpec::SpectralDelay {
+                    delay_frames: frames,
+                    feedback: 0.5,
+                    mix: 0.5,
+                })
                 .unwrap();
         }
         engine.set_transform(TransformSpec::Identity).unwrap();
