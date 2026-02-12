@@ -472,6 +472,109 @@ impl SpectralTransform for PitchShift {
     }
 }
 
+// ---------------------------------------------------------------------------
+// Spectral Delay
+// ---------------------------------------------------------------------------
+
+/// Spectral delay: stores past spectral frames in a ring buffer and mixes
+/// delayed spectrum with the current input.
+///
+/// In **global** mode, entire spectral frames are delayed as a unit.
+/// The `delay_frames` parameter controls how many frames back to read,
+/// `feedback` (0.0–0.95) feeds the output back into the delay line for
+/// decaying repetitions, and `mix` (0.0–1.0) blends the dry (current)
+/// and wet (delayed) signals.
+pub struct SpectralDelay {
+    /// Number of frames of delay.
+    delay_frames: usize,
+    /// Feedback coefficient (0.0–0.95). The delayed signal is fed back
+    /// with this factor, producing decaying repetitions.
+    feedback: f32,
+    /// Dry/wet mix (0.0 = fully dry, 1.0 = fully wet).
+    mix: f32,
+    /// Ring buffer of past spectral frames. Each entry is a full
+    /// `fft_size/2 + 1` complex spectrum.
+    buffer: Vec<Vec<Complex<f32>>>,
+    /// Current write position in the ring buffer.
+    write_pos: usize,
+    /// Whether the ring buffer has been fully filled at least once.
+    filled: bool,
+}
+
+impl SpectralDelay {
+    /// Create a new spectral delay.
+    ///
+    /// - `delay_frames`: how many spectral frames to delay (≥ 1).
+    /// - `feedback`: feedback coefficient, clamped to `[0.0, 0.95]`.
+    /// - `mix`: dry/wet mix, clamped to `[0.0, 1.0]`.
+    pub fn new(delay_frames: usize, feedback: f32, mix: f32) -> Self {
+        let delay_frames = delay_frames.max(1);
+        let feedback = feedback.clamp(0.0, 0.95);
+        let mix = mix.clamp(0.0, 1.0);
+
+        Self {
+            delay_frames,
+            feedback,
+            mix,
+            buffer: Vec::new(),
+            write_pos: 0,
+            filled: false,
+        }
+    }
+}
+
+impl SpectralTransform for SpectralDelay {
+    fn process(&mut self, spectrum: &mut [Complex<f32>], _sample_rate: f32, _fft_size: usize) {
+        let num_bins = spectrum.len();
+        if num_bins == 0 {
+            return;
+        }
+
+        // Lazily initialize ring buffer on first call (we need to know num_bins).
+        if self.buffer.is_empty() {
+            self.buffer = vec![vec![Complex::new(0.0, 0.0); num_bins]; self.delay_frames];
+            self.write_pos = 0;
+            self.filled = false;
+        }
+
+        let buf_len = self.buffer.len();
+
+        // Read the delayed frame from the ring buffer.
+        // The read position is `delay_frames` behind the write position.
+        let read_pos = if self.filled {
+            self.write_pos % buf_len
+        } else {
+            // Buffer not yet full — read the oldest available frame (position 0).
+            0
+        };
+
+        // Build the output: mix dry (current) and wet (delayed).
+        let dry_gain = 1.0 - self.mix;
+        let wet_gain = self.mix;
+
+        for (i, bin) in spectrum.iter_mut().enumerate() {
+            let delayed = self.buffer[read_pos][i];
+            let dry = *bin;
+
+            // Write current input + feedback from delayed signal into buffer.
+            self.buffer[self.write_pos][i] = dry + delayed * self.feedback;
+
+            // Output is dry/wet blend.
+            *bin = dry * dry_gain + delayed * wet_gain;
+        }
+
+        // Advance write pointer.
+        self.write_pos = (self.write_pos + 1) % buf_len;
+        if self.write_pos == 0 {
+            self.filled = true;
+        }
+    }
+
+    fn name(&self) -> &'static str {
+        "Spectral Delay"
+    }
+}
+
 /// Chain of transforms applied in sequence.
 pub struct TransformChain {
     transforms: Vec<Box<dyn SpectralTransform>>,
@@ -1334,5 +1437,191 @@ mod tests {
             (peak_freq - expected).abs() < bin_width * 2.0,
             "expected peak near {expected:.1} Hz, got {peak_freq:.1} Hz"
         );
+    }
+
+    // -----------------------------------------------------------------------
+    // SpectralDelay tests
+    // -----------------------------------------------------------------------
+
+    #[test]
+    fn spectral_delay_delays_spectrum() {
+        let sample_rate = 44100.0;
+        let fft_size = 1024;
+        let num_bins = fft_size / 2 + 1;
+        let delay_frames = 4;
+
+        let mut delay = SpectralDelay::new(delay_frames, 0.0, 1.0); // no feedback, full wet
+
+        // Feed a known spectrum for one frame, then feed silence.
+        let mut frame: Vec<Complex<f32>> = (0..num_bins)
+            .map(|i| Complex::new((i as f32 + 1.0) * 0.1, 0.0))
+            .collect();
+        delay.process(&mut frame, sample_rate, fft_size);
+
+        // Feed silence frames — the delayed signal should appear after delay_frames.
+        for frame_idx in 1..=delay_frames + 1 {
+            let mut frame = vec![Complex::new(0.0, 0.0); num_bins];
+            delay.process(&mut frame, sample_rate, fft_size);
+
+            if frame_idx == delay_frames {
+                // The delayed frame should now appear (full wet, no feedback).
+                let energy: f32 = frame.iter().map(|c| c.norm()).sum();
+                assert!(
+                    energy > 0.1,
+                    "delayed spectrum should appear after {delay_frames} frames, got energy {energy}"
+                );
+            }
+        }
+    }
+
+    #[test]
+    fn spectral_delay_dry_wet_mix() {
+        let sample_rate = 44100.0;
+        let fft_size = 256;
+        let num_bins = fft_size / 2 + 1;
+
+        // With mix=0.0 (fully dry), the output should be the input unchanged.
+        let mut delay_dry = SpectralDelay::new(4, 0.5, 0.0);
+        let original: Vec<Complex<f32>> = (0..num_bins)
+            .map(|i| Complex::new(i as f32 * 0.01, 0.0))
+            .collect();
+        let mut frame = original.clone();
+        delay_dry.process(&mut frame, sample_rate, fft_size);
+
+        for (i, (orig, out)) in original.iter().zip(&frame).enumerate() {
+            assert!(
+                (orig.re - out.re).abs() < 1e-6 && (orig.im - out.im).abs() < 1e-6,
+                "bin {i}: dry mix should pass input through"
+            );
+        }
+    }
+
+    #[test]
+    fn spectral_delay_feedback_produces_decay() {
+        let sample_rate = 44100.0;
+        let fft_size = 256;
+        let num_bins = fft_size / 2 + 1;
+        let delay_frames = 2;
+        let feedback = 0.5;
+
+        let mut delay = SpectralDelay::new(delay_frames, feedback, 1.0); // full wet
+
+        // Send a pulse (one frame of signal, then silence).
+        let mut frame: Vec<Complex<f32>> = (0..num_bins).map(|_| Complex::new(1.0, 0.0)).collect();
+        delay.process(&mut frame, sample_rate, fft_size);
+
+        // Track the energy of the wet output over successive silent frames.
+        let mut energies = Vec::new();
+        for _ in 0..20 {
+            let mut frame = vec![Complex::new(0.0, 0.0); num_bins];
+            delay.process(&mut frame, sample_rate, fft_size);
+            let energy: f32 = frame.iter().map(|c| c.norm()).sum();
+            energies.push(energy);
+        }
+
+        // Find the first non-trivial energy (delayed signal appears).
+        let first_nonzero = energies.iter().position(|&e| e > 0.01);
+        assert!(
+            first_nonzero.is_some(),
+            "should eventually see delayed energy"
+        );
+
+        // After the initial delayed signal, energy should decay.
+        let start = first_nonzero.unwrap();
+        if start + 3 < energies.len() {
+            // Subsequent echoes should be smaller.
+            let later = energies
+                .iter()
+                .skip(start + 2)
+                .copied()
+                .next()
+                .unwrap_or(0.0);
+            assert!(
+                later < energies[start] || energies[start] < 0.01,
+                "feedback should cause decaying echoes: first={}, later={}",
+                energies[start],
+                later
+            );
+        }
+    }
+
+    #[test]
+    fn spectral_delay_ring_buffer_wraps() {
+        let sample_rate = 44100.0;
+        let fft_size = 256;
+        let num_bins = fft_size / 2 + 1;
+        let delay_frames = 2;
+
+        let mut delay = SpectralDelay::new(delay_frames, 0.0, 1.0);
+
+        // Process enough frames to wrap the ring buffer multiple times.
+        for i in 0..20 {
+            let mut frame: Vec<Complex<f32>> = (0..num_bins)
+                .map(|b| Complex::new((b as f32).mul_add(0.001, i as f32), 0.0))
+                .collect();
+            delay.process(&mut frame, sample_rate, fft_size);
+            // Should not panic or produce NaN.
+            for bin in &frame {
+                assert!(!bin.re.is_nan(), "output should not be NaN");
+                assert!(!bin.im.is_nan(), "output should not be NaN");
+            }
+        }
+    }
+
+    #[test]
+    fn spectral_delay_feedback_clamped() {
+        // Feedback > 0.95 should be clamped.
+        let delay = SpectralDelay::new(4, 1.5, 0.5);
+        assert!(
+            delay.feedback <= 0.95,
+            "feedback should be clamped to 0.95, got {}",
+            delay.feedback
+        );
+
+        // Negative feedback clamped to 0.
+        let delay2 = SpectralDelay::new(4, -0.5, 0.5);
+        assert!(
+            delay2.feedback >= 0.0,
+            "feedback should be clamped to 0.0, got {}",
+            delay2.feedback
+        );
+    }
+
+    #[test]
+    fn spectral_delay_mix_clamped() {
+        let delay = SpectralDelay::new(4, 0.5, 2.0);
+        assert!(
+            delay.mix <= 1.0,
+            "mix should be clamped to 1.0, got {}",
+            delay.mix
+        );
+
+        let delay2 = SpectralDelay::new(4, 0.5, -1.0);
+        assert!(
+            delay2.mix >= 0.0,
+            "mix should be clamped to 0.0, got {}",
+            delay2.mix
+        );
+    }
+
+    #[test]
+    fn spectral_delay_zero_delay_frames_clamped() {
+        // delay_frames = 0 should be clamped to 1.
+        let delay = SpectralDelay::new(0, 0.5, 0.5);
+        assert_eq!(delay.delay_frames, 1, "delay_frames should be clamped to 1");
+    }
+
+    #[test]
+    fn spectral_delay_name() {
+        let delay = SpectralDelay::new(4, 0.5, 0.5);
+        assert_eq!(delay.name(), "Spectral Delay");
+    }
+
+    #[test]
+    fn spectral_delay_empty_spectrum_no_panic() {
+        let mut delay = SpectralDelay::new(4, 0.5, 0.5);
+        let mut spectrum: Vec<Complex<f32>> = Vec::new();
+        // Should not panic on empty spectrum.
+        delay.process(&mut spectrum, 44100.0, 0);
     }
 }

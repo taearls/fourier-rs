@@ -142,13 +142,33 @@ pub enum ParamMessage {
 #[serde(tag = "type", content = "value")]
 pub enum TransformSpec {
     Identity,
-    LowPass { cutoff_hz: f32 },
-    HighPass { cutoff_hz: f32 },
-    BandPass { low_hz: f32, high_hz: f32 },
-    Gain { factor: f32 },
-    ParametricEq { bands: Vec<EqBand> },
-    SpectralFreeze { frozen: bool },
-    PitchShift { semitones: f32 },
+    LowPass {
+        cutoff_hz: f32,
+    },
+    HighPass {
+        cutoff_hz: f32,
+    },
+    BandPass {
+        low_hz: f32,
+        high_hz: f32,
+    },
+    Gain {
+        factor: f32,
+    },
+    ParametricEq {
+        bands: Vec<EqBand>,
+    },
+    SpectralFreeze {
+        frozen: bool,
+    },
+    PitchShift {
+        semitones: f32,
+    },
+    SpectralDelay {
+        delay_frames: usize,
+        feedback: f32,
+        mix: f32,
+    },
     Chain(Vec<Self>),
 }
 
@@ -608,6 +628,59 @@ mod tests {
                 assert!((semitones - (-7.0)).abs() < f32::EPSILON);
             }
             other => panic!("expected SetTransform(PitchShift), got {other:?}"),
+        }
+    }
+
+    // --- SpectralDelay TransformSpec roundtrips ---
+
+    #[test]
+    fn transform_spec_spectral_delay_roundtrip() {
+        let spec = TransformSpec::SpectralDelay {
+            delay_frames: 8,
+            feedback: 0.5,
+            mix: 0.75,
+        };
+        let json = roundtrip_json(&spec);
+        assert!(json.contains("SpectralDelay"));
+        assert!(json.contains("delay_frames"));
+        assert!(json.contains("feedback"));
+        assert!(json.contains("mix"));
+    }
+
+    #[test]
+    fn transform_spec_spectral_delay_in_chain_roundtrip() {
+        let spec = TransformSpec::Chain(vec![
+            TransformSpec::SpectralDelay {
+                delay_frames: 4,
+                feedback: 0.3,
+                mix: 0.5,
+            },
+            TransformSpec::Gain { factor: 0.8 },
+        ]);
+        roundtrip_json(&spec);
+    }
+
+    #[test]
+    fn param_message_set_spectral_delay_roundtrip() {
+        let msg = ParamMessage::SetTransform(TransformSpec::SpectralDelay {
+            delay_frames: 16,
+            feedback: 0.8,
+            mix: 1.0,
+        });
+        let json = serde_json::to_string_pretty(&msg).unwrap();
+        assert!(json.contains("SpectralDelay"));
+        let recovered: ParamMessage = serde_json::from_str(&json).unwrap();
+        match recovered {
+            ParamMessage::SetTransform(TransformSpec::SpectralDelay {
+                delay_frames,
+                feedback,
+                mix,
+            }) => {
+                assert_eq!(delay_frames, 16);
+                assert!((feedback - 0.8).abs() < f32::EPSILON);
+                assert!((mix - 1.0).abs() < f32::EPSILON);
+            }
+            other => panic!("expected SetTransform(SpectralDelay), got {other:?}"),
         }
     }
 }

@@ -43,6 +43,7 @@ export type TransformSpec =
   | { type: "Gain"; value: { factor: number } }
   | { type: "ParametricEq"; value: { bands: EqBand[] } }
   | { type: "PitchShift"; value: { semitones: number } }
+  | { type: "SpectralDelay"; value: { delay_frames: number; feedback: number; mix: number } }
   | { type: "Chain"; value: TransformSpec[] };
 
 // ---------------------------------------------------------------------------

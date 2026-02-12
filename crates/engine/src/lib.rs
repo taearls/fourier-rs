@@ -16,7 +16,8 @@ pub mod source;
 pub use error::EngineError;
 pub use export::{compute_total_frames, render_offline, RenderConfig};
 pub use fourier_core::{
-    AdditiveSynth, BandType, EqBand, NoiseGenerator, PitchShift, SpectralFreeze, WaveformType,
+    AdditiveSynth, BandType, EqBand, NoiseGenerator, PitchShift, SpectralDelay, SpectralFreeze,
+    WaveformType,
 };
 pub use params::{EngineParams, NoiseType, ParamMessage, Partial, SourceSpec, TransformSpec};
 pub use preset::{factory_presets, Preset, PresetInfo};
