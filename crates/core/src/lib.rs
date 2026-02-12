@@ -2,6 +2,15 @@
 //!
 //! Contains FFT/IFFT wrappers, window functions, overlap-add logic,
 //! spectral peak detection, and the user-defined transform interface.
+//!
+//! # Features
+//!
+//! - **`wasm`** — Enables [`wasm`] module with `wasm-bindgen` wrapper types for
+//!   calling fourier-core DSP operations from JavaScript/TypeScript via
+//!   WebAssembly. Build with:
+//!   ```sh
+//!   cargo build --target wasm32-unknown-unknown -p fourier-core --features wasm
+//!   ```
 
 pub mod additive;
 pub mod error;
@@ -11,6 +20,8 @@ pub mod oscillator;
 pub mod overlap_add;
 pub mod spectral;
 pub mod transform;
+#[cfg(feature = "wasm")]
+pub mod wasm;
 pub mod window;
 
 // Re-export key types at crate root for convenience.

@@ -1,0 +1,231 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>fourier-core WASM FFT Roundtrip</title>
+  <style>
+    body { font-family: monospace; background: #1a1a2e; color: #e0e0e0; padding: 2em; }
+    h1 { color: #16c784; }
+    pre { background: #0f0f23; padding: 1em; border-radius: 4px; overflow-x: auto; }
+    .pass { color: #16c784; }
+    .fail { color: #ef4444; }
+    button { background: #16c784; color: #1a1a2e; border: none; padding: 0.5em 1em;
+             cursor: pointer; font-family: monospace; font-size: 1em; border-radius: 4px; }
+    button:hover { opacity: 0.9; }
+    canvas { display: block; margin: 1em 0; background: #0f0f23; border-radius: 4px; }
+  </style>
+</head>
+<body>
+  <h1>fourier-core WASM FFT Roundtrip Demo</h1>
+  <p>
+    This example demonstrates using fourier-core's WASM exports to perform
+    FFT and IFFT in the browser. Build with:
+  </p>
+  <pre>
+# Install wasm-pack: https://rustwasm.github.io/wasm-pack/installer/
+cd crates/core
+wasm-pack build --target web --features wasm
+  </pre>
+  <p>Then serve this directory and import the generated package.</p>
+
+  <button id="run">Run FFT Roundtrip</button>
+  <pre id="output">Click "Run FFT Roundtrip" to start...</pre>
+  <canvas id="spectrum" width="800" height="200"></canvas>
+
+  <script type="module">
+    // When built with wasm-pack, import from the generated pkg/ directory.
+    // Adjust the path depending on your build output location.
+    //
+    //   import init, {
+    //     WasmFftProcessor,
+    //     WasmOscillator,
+    //     magnitudeSpectrumDb,
+    //     binToFrequency,
+    //   } from '../../crates/core/pkg/fourier_core.js';
+
+    const outputEl = document.getElementById('output');
+    const canvas = document.getElementById('spectrum');
+    const ctx = canvas.getContext('2d');
+
+    // Fallback: pure-JS demo when WASM is not yet built.
+    // Replace this with the wasm-pack import above after building.
+    document.getElementById('run').addEventListener('click', async () => {
+      outputEl.textContent = '';
+      log('=== FFT Roundtrip Demo ===\n');
+
+      try {
+        // Attempt to load WASM module. If not built yet, fall back to JS demo.
+        const wasm = await loadWasm();
+        if (wasm) {
+          runWasmDemo(wasm);
+        } else {
+          runJsFallbackDemo();
+        }
+      } catch (e) {
+        log(`Error: ${e.message}\n`);
+        log('\nFalling back to pure-JS demo...\n\n');
+        runJsFallbackDemo();
+      }
+    });
+
+    async function loadWasm() {
+      try {
+        const module = await import('../../crates/core/pkg/fourier_core.js');
+        await module.default();
+        return module;
+      } catch {
+        return null;
+      }
+    }
+
+    function runWasmDemo(wasm) {
+      const {
+        WasmFftProcessor,
+        WasmOscillator,
+        magnitudeSpectrumDb,
+        binToFrequency,
+      } = wasm;
+
+      const FFT_SIZE = 2048;
+      const SAMPLE_RATE = 44100;
+
+      // 1. Create an oscillator and generate a test signal.
+      log('1. Generating 440 Hz sine wave...');
+      const osc = new WasmOscillator('sine', 440.0, 1.0, SAMPLE_RATE);
+      const signal = osc.generate(FFT_SIZE);
+      log(`   ${signal.length} samples generated\n`);
+
+      // 2. Forward FFT.
+      log('2. Running forward FFT...');
+      const fft = new WasmFftProcessor(FFT_SIZE);
+      const spectrum = fft.forward(signal);
+      log(`   ${spectrum.length / 2} complex bins\n`);
+
+      // 3. Compute magnitude spectrum in dB.
+      log('3. Computing magnitude spectrum...');
+      const magDb = magnitudeSpectrumDb(spectrum);
+      const peakBin = magDb.indexOf(Math.max(...magDb.slice(1)));
+      const peakFreq = binToFrequency(peakBin, SAMPLE_RATE, FFT_SIZE);
+      log(`   Peak at bin ${peakBin} = ${peakFreq.toFixed(1)} Hz`);
+      log(`   Peak magnitude: ${magDb[peakBin].toFixed(1)} dB\n`);
+
+      // 4. Inverse FFT (roundtrip).
+      log('4. Running inverse FFT (roundtrip)...');
+      const reconstructed = fft.inverse(spectrum);
+      log(`   ${reconstructed.length} samples reconstructed\n`);
+
+      // 5. Verify roundtrip accuracy.
+      log('5. Verifying roundtrip accuracy...');
+      let maxError = 0;
+      for (let i = 0; i < signal.length; i++) {
+        maxError = Math.max(maxError, Math.abs(signal[i] - reconstructed[i]));
+      }
+      const passed = maxError < 1e-3;
+      log(`   Max error: ${maxError.toExponential(4)}`);
+      log(
+        passed
+          ? '   PASS: FFT roundtrip is identity within tolerance\n'
+          : '   FAIL: roundtrip error too large\n',
+        passed ? 'pass' : 'fail'
+      );
+
+      // 6. Draw spectrum.
+      drawSpectrum(magDb, SAMPLE_RATE, FFT_SIZE);
+      log('6. Spectrum visualization drawn on canvas.\n');
+      log('=== Done ===');
+    }
+
+    function runJsFallbackDemo() {
+      log('(WASM module not found - showing JS placeholder demo)\n');
+      log('To run the full WASM demo:\n');
+      log('  1. Install wasm-pack: curl https://rustwasm.github.io/wasm-pack/installer/init.sh -sSf | sh');
+      log('  2. Build: cd crates/core && wasm-pack build --target web --features wasm');
+      log('  3. Serve this directory and reload\n');
+
+      // Generate a simple sine wave in JS for visualization.
+      const FFT_SIZE = 2048;
+      const SAMPLE_RATE = 44100;
+      const signal = new Float32Array(FFT_SIZE);
+      for (let i = 0; i < FFT_SIZE; i++) {
+        signal[i] = Math.sin(2 * Math.PI * 440 * i / SAMPLE_RATE);
+      }
+
+      // Fake magnitude spectrum for visualization.
+      const magDb = new Float32Array(FFT_SIZE / 2 + 1).fill(-90);
+      const peakBin = Math.round(440 * FFT_SIZE / SAMPLE_RATE);
+      magDb[peakBin] = 0;
+      for (let d = 1; d <= 5; d++) {
+        if (peakBin - d >= 0) magDb[peakBin - d] = -10 * d;
+        if (peakBin + d < magDb.length) magDb[peakBin + d] = -10 * d;
+      }
+
+      drawSpectrum(magDb, SAMPLE_RATE, FFT_SIZE);
+      log('Placeholder spectrum drawn (JS-generated, not real FFT).\n');
+      log('=== Done ===');
+    }
+
+    function drawSpectrum(magDb, sampleRate, fftSize) {
+      const w = canvas.width;
+      const h = canvas.height;
+      ctx.clearRect(0, 0, w, h);
+
+      // Draw grid.
+      ctx.strokeStyle = '#333';
+      ctx.lineWidth = 0.5;
+      for (let db = -90; db <= 0; db += 10) {
+        const y = h * (1 - (db + 90) / 90);
+        ctx.beginPath();
+        ctx.moveTo(0, y);
+        ctx.lineTo(w, y);
+        ctx.stroke();
+      }
+
+      // Draw magnitude spectrum (log frequency scale, 20 Hz - 20 kHz).
+      const minFreq = 20;
+      const maxFreq = 20000;
+      const logMin = Math.log10(minFreq);
+      const logMax = Math.log10(maxFreq);
+
+      ctx.strokeStyle = '#16c784';
+      ctx.lineWidth = 1.5;
+      ctx.beginPath();
+      let started = false;
+
+      for (let i = 1; i < magDb.length; i++) {
+        const freq = i * sampleRate / fftSize;
+        if (freq < minFreq || freq > maxFreq) continue;
+
+        const x = w * (Math.log10(freq) - logMin) / (logMax - logMin);
+        const db = Math.max(-90, magDb[i]);
+        const y = h * (1 - (db + 90) / 90);
+
+        if (!started) {
+          ctx.moveTo(x, y);
+          started = true;
+        } else {
+          ctx.lineTo(x, y);
+        }
+      }
+      ctx.stroke();
+
+      // Labels.
+      ctx.fillStyle = '#888';
+      ctx.font = '10px monospace';
+      [20, 100, 440, 1000, 5000, 10000, 20000].forEach(f => {
+        const x = w * (Math.log10(f) - logMin) / (logMax - logMin);
+        ctx.fillText(f >= 1000 ? `${f / 1000}k` : `${f}`, x - 8, h - 4);
+      });
+      ctx.fillText('0 dB', 4, 14);
+      ctx.fillText('-90 dB', 4, h - 14);
+    }
+
+    function log(msg, cls) {
+      const span = document.createElement('span');
+      if (cls) span.className = cls;
+      span.textContent = msg + '\n';
+      outputEl.appendChild(span);
+    }
+  </script>
+</body>
+</html>

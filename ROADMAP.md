@@ -8,14 +8,14 @@
 
 ## Open Issues Summary
 
-**2 open issues** across 7 phases (27 completed)
+**1 open issue** across 7 phases (28 completed)
 
 | Priority | Count | Issues |
 |----------|-------|--------|
 | :red_circle: Critical | 0 | &mdash; |
 | :yellow_circle: High | 0 | &mdash; |
 | :green_circle: Medium | 0 | &mdash; |
-| :large_blue_circle: Low | 2 | #27, #28 |
+| :large_blue_circle: Low | 1 | #28 |
 
 ---
 
@@ -54,6 +54,7 @@ The following capabilities already exist in the codebase:
 - **Preset save/load** &mdash; `Preset` struct with serde support in `crates/engine/src/preset.rs`; `save_preset`, `load_preset`, `list_presets`, `delete_preset` Tauri commands; JSON file storage in user data directory (`~/Library/Application Support/fourier-rs/presets/`); 5 factory presets (Clean Sine, Low-Pass Voice, Octave Up, Warm Pad, Pink Noise Ambience); factory preset protection (cannot overwrite/delete); `<PresetPanel />` SolidJS component with preset dropdown, load/save/delete controls, name input with Enter/Escape keyboard handling
 - **Audio export** &mdash; `render_offline()` function in `crates/engine/src/export.rs` for offline OLA rendering independent of live engine; `compute_total_frames()` for audio buffer vs. generated source duration; `export_audio` Tauri command with progress reporting via `export-progress` events; supports all source types (oscillator, noise, audio buffer; live input renders silence); output gain applied; WAV output via `save_wav()` with I16 format; frontend export UI with duration input, progress bar, and native save dialog
 - **Tuner display** &mdash; `<TunerDisplay />` SolidJS component with peak frequency detection from spectral snapshots; frequency-to-note mapping (A4=440Hz equal temperament); note name with octave display (e.g. &ldquo;A4&rdquo;, &ldquo;C#5&rdquo;); cents deviation with color-coded indicator (green &le;5ct, yellow 5&ndash;20ct, red &gt;20ct); visual cents bar with centered reference marker; no-signal graceful fallback (&ldquo;--&rdquo;); `tuner-utils.ts` with `getTunerReading()`, MIDI-based pitch math, and `TunerReading` interface
+- **WASM compilation** &mdash; `fourier-core` compiles to `wasm32-unknown-unknown` target via `wasm` feature flag; `wasm-bindgen` wrapper types in `crates/core/src/wasm.rs` for all core DSP operations: `WasmFftProcessor` (forward/inverse FFT with interleaved complex format), `WasmOscillator` (all 4 waveforms), `WasmNoiseGenerator` (white/pink), `WasmWindowFunction` (hann/hamming/blackman/rectangular), `WasmTransform` (identity, low-pass, high-pass, band-pass, gain, pitch shift, spectral freeze, spectral delay), `WasmAdditiveSynth` (harmonic series and custom partials), `WasmOverlapAddProcessor` (streaming OLA with configurable transform); free functions: `magnitudeSpectrum`, `magnitudeSpectrumDb`, `binToFrequency`, `frequencyToBin`; JS-friendly string-based enum parsing; example HTML+JS FFT roundtrip demo in `examples/wasm-fft/`
 
 ---
 
@@ -192,14 +193,14 @@ The following capabilities already exist in the codebase:
 | #25 | ~~Add error handling (thiserror) and logging (tracing)~~ | :white_check_mark: Done | ~2 days | &mdash; |
 | #26 | ~~Add GitHub Actions CI pipeline~~ | :white_check_mark: Done | ~1 day | &mdash; |
 | #51 | ~~Review and optimize CI workflow for reduced overhead~~ | :white_check_mark: Done | ~0.5 day | #26 |
-| #27 | Compile fourier-core to WASM target | :large_blue_circle: Low | ~2 days | #2 |
+| #27 | ~~Compile fourier-core to WASM target~~ | :white_check_mark: Done | ~2 days | #2 |
 | #28 | Add WebAudio integration layer | :large_blue_circle: Low | ~3 days | #27 |
 | #30 | ~~Set up development infrastructure (linting, formatting, testing, CI)~~ | :white_check_mark: Done | ~2 days | &mdash; |
 
 **Key deliverables:**
 - ~~`EngineError` enum via `thiserror`, `tracing` instrumentation~~ :white_check_mark:
 - ~~CI: build, test, clippy, fmt on macOS (pinned 1.93.0 only, nightly removed)~~ :white_check_mark:
-- WASM build of fourier-core with `wasm-bindgen` exports
+- ~~WASM build of fourier-core with `wasm-bindgen` exports~~ :white_check_mark:
 - AudioWorklet integration with example web page
 - ~~Dev infrastructure: `rust-toolchain.toml`, `rustfmt.toml`, workspace lints, `.editorconfig`, `deny.toml`, `Justfile`~~ :white_check_mark:
 
@@ -319,7 +320,7 @@ These can proceed independently alongside the critical path:
 | ~~25~~ | ~~#10 Spectral delay~~ | ~~Niche effect~~ :white_check_mark: |
 | ~~26~~ | ~~#26 CI pipeline~~ | ~~Stable + nightly matrix, caching~~ :white_check_mark: |
 | ~~27~~ | ~~#51 Optimize CI workflow~~ | ~~Drop nightly, reduce overhead~~ :white_check_mark: |
-| 28 | #27 WASM compilation | Web readiness |
+| ~~28~~ | ~~#27 WASM compilation~~ | ~~Web readiness~~ :white_check_mark: |
 | 29 | #28 WebAudio integration | Browser demo |
 
 ---
@@ -334,8 +335,8 @@ These can proceed independently alongside the critical path:
 | 4 &mdash; Tauri | 4 | 0 | 0 | 0 | 0 | 4 |
 | 5 &mdash; UI | 5 | 0 | 0 | 0 | 0 | 5 |
 | 6 &mdash; Workflow | 3 | 0 | 0 | 0 | 0 | 3 |
-| 7 &mdash; Polish/Web | 6 | 0 | 0 | 0 | 2 | 4 |
-| **Total** | **29** | **0** | **0** | **0** | **2** | **27** |
+| 7 &mdash; Polish/Web | 6 | 0 | 0 | 0 | 1 | 5 |
+| **Total** | **29** | **0** | **0** | **0** | **1** | **28** |
 
 ---
 
@@ -356,6 +357,7 @@ These can proceed independently alongside the critical path:
 ## Changelog
 
 ### 2026-02-12
+- **Completed #27** (compile fourier-core to WASM target) &mdash; added `wasm` feature flag to `fourier-core` Cargo.toml with optional `wasm-bindgen` dependency; added `wasm-bindgen = "0.2"` to workspace dependencies; created `crates/core/src/wasm.rs` module gated behind `#[cfg(feature = "wasm")]` with comprehensive `wasm_bindgen` wrapper types for all core DSP operations; `WasmFftProcessor` with `forward()` and `inverse()` methods using interleaved `[re, im, …]` format for JS `Float32Array` interop; `WasmOscillator` with string-based waveform selection (`"sine"`, `"square"`, `"sawtooth"`, `"triangle"`), `generate(num_samples)` returning `Vec<f32>`, and getter/setter properties; `WasmNoiseGenerator` with string-based noise type (`"white"`, `"pink"`); `WasmWindowFunction` with `apply()`, `table()`, and `coherentGain` getter; `WasmTransform` with static factory methods (`identity()`, `lowPass()`, `highPass()`, `bandPass()`, `gain()`, `pitchShift()`, `spectralFreeze()`, `spectralDelay()`) wrapping the `SpectralTransform` trait behind a single JS-friendly type; `WasmAdditiveSynth` with harmonic series constructor and `fromPartials()` for custom partial data; `WasmOverlapAddProcessor` for streaming FFT-based spectral processing with configurable transform; free functions `magnitudeSpectrum()`, `magnitudeSpectrumDb()`, `binToFrequency()`, `frequencyToBin()` for spectral analysis utilities; all wrappers use `JsError` for error reporting; `cargo build --target wasm32-unknown-unknown -p fourier-core --features wasm` succeeds; no `std` dependencies that break WASM; zero clippy warnings; all 112 existing tests pass unchanged; example HTML+JS FFT roundtrip demo in `examples/wasm-fft/index.html` with spectrum visualization, wasm-pack instructions, and JS fallback mode
 - **Completed #10** (spectral delay effect) &mdash; created `SpectralDelay` struct implementing `SpectralTransform` in `crates/core/src/transform.rs`; stores past spectral frames in a ring buffer and mixes delayed spectrum with current input; parameters: `delay_frames: usize` (number of spectral frames to delay, &ge;1), `feedback: f32` (clamped to 0.0&ndash;0.95, feeds output back into delay line for decaying repetitions), `mix: f32` (clamped to 0.0&ndash;1.0, dry/wet blend); lazy ring buffer initialization on first `process()` call (adapts to any FFT size); output formula: `output = dry * (1-mix) + delayed * mix`; delay line stores `input + delayed * feedback` for each frame; ring buffer wraps correctly with modular arithmetic; `TransformSpec::SpectralDelay { delay_frames, feedback, mix }` variant in `crates/engine/src/params.rs` with full serde support; wired into `build_transform()` in `processor.rs`; re-exported `SpectralDelay` from `fourier-core` and `fourier-engine` crate roots; TypeScript `SpectralDelay` variant added to `TransformSpec` type in `app/src/bindings.ts`; `<TransformPanel />` updated with "Spectral Delay" option and controls: frames slider (1&ndash;64), feedback slider (0&ndash;95%), mix slider (0&ndash;100%) in both single and chain modes; 9 new unit tests in `fourier-core`: delay delays spectrum, dry/wet mix, feedback produces decay, ring buffer wraps, feedback clamped, mix clamped, zero delay frames clamped, name, empty spectrum no panic; 3 new serde roundtrip tests in `fourier-engine`: SpectralDelay spec, in-chain, param message; 2 engine integration tests: spectral delay produces output with oscillator source, rapid parameter switching does not panic; all 275 tests pass; completes Phase 3 (Enhanced DSP) with all 4 issues done
 
 ### 2026-02-11
