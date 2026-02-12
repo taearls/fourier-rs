@@ -122,46 +122,50 @@ const TransformPanel: Component<{
   // Build TransformSpec
   // -----------------------------------------------------------------------
 
+  interface SingleSpecParams {
+    cutoff: number;
+    low: number;
+    high: number;
+    gain: number;
+    bands: EqBand[];
+    pitch: number;
+    dFrames: number;
+    dFeedback: number;
+    dMix: number;
+  }
+
   function buildSingleSpec(
     type: TransformType,
-    cutoff: number,
-    low: number,
-    high: number,
-    gain: number,
-    bands: EqBand[],
-    pitch: number,
-    dFrames: number,
-    dFeedback: number,
-    dMix: number,
+    p: SingleSpecParams,
   ): TransformSpec {
     switch (type) {
       case "Identity":
         return { type: "Identity" };
       case "LowPass":
-        return { type: "LowPass", value: { cutoff_hz: cutoff } };
+        return { type: "LowPass", value: { cutoff_hz: p.cutoff } };
       case "HighPass":
-        return { type: "HighPass", value: { cutoff_hz: cutoff } };
+        return { type: "HighPass", value: { cutoff_hz: p.cutoff } };
       case "BandPass":
         return {
           type: "BandPass",
           value: {
-            low_hz: Math.min(low, high),
-            high_hz: Math.max(low, high),
+            low_hz: Math.min(p.low, p.high),
+            high_hz: Math.max(p.low, p.high),
           },
         };
       case "Gain":
-        return { type: "Gain", value: { factor: gain } };
+        return { type: "Gain", value: { factor: p.gain } };
       case "ParametricEq":
-        return { type: "ParametricEq", value: { bands } };
+        return { type: "ParametricEq", value: { bands: p.bands } };
       case "PitchShift":
-        return { type: "PitchShift", value: { semitones: pitch } };
+        return { type: "PitchShift", value: { semitones: p.pitch } };
       case "SpectralDelay":
         return {
           type: "SpectralDelay",
           value: {
-            delay_frames: Math.round(dFrames),
-            feedback: dFeedback,
-            mix: dMix,
+            delay_frames: Math.round(p.dFrames),
+            feedback: p.dFeedback,
+            mix: p.dMix,
           },
         };
     }
@@ -169,18 +173,17 @@ const TransformPanel: Component<{
 
   function buildSpec(): TransformSpec {
     if (!chainEnabled()) {
-      return buildSingleSpec(
-        transformType(),
-        cutoffHz(),
-        lowHz(),
-        highHz(),
-        gainFactor(),
-        eqBands(),
-        pitchSemitones(),
-        delayFrames(),
-        delayFeedback(),
-        delayMix(),
-      );
+      return buildSingleSpec(transformType(), {
+        cutoff: cutoffHz(),
+        low: lowHz(),
+        high: highHz(),
+        gain: gainFactor(),
+        bands: eqBands(),
+        pitch: pitchSemitones(),
+        dFrames: delayFrames(),
+        dFeedback: delayFeedback(),
+        dMix: delayMix(),
+      });
     }
 
     const entries = chain();
@@ -189,18 +192,17 @@ const TransformPanel: Component<{
     }
 
     const specs = entries.map((entry) =>
-      buildSingleSpec(
-        entry.transformType,
-        chainCutoffs()[entry.id] ?? 1000,
-        chainLows()[entry.id] ?? 300,
-        chainHighs()[entry.id] ?? 3000,
-        chainGains()[entry.id] ?? 1.0,
-        chainEqBands()[entry.id] ?? [defaultBand()],
-        chainPitchSemitones()[entry.id] ?? 0,
-        chainDelayFrames()[entry.id] ?? 8,
-        chainDelayFeedback()[entry.id] ?? 0.5,
-        chainDelayMix()[entry.id] ?? 0.5,
-      ),
+      buildSingleSpec(entry.transformType, {
+        cutoff: chainCutoffs()[entry.id] ?? 1000,
+        low: chainLows()[entry.id] ?? 300,
+        high: chainHighs()[entry.id] ?? 3000,
+        gain: chainGains()[entry.id] ?? 1.0,
+        bands: chainEqBands()[entry.id] ?? [defaultBand()],
+        pitch: chainPitchSemitones()[entry.id] ?? 0,
+        dFrames: chainDelayFrames()[entry.id] ?? 8,
+        dFeedback: chainDelayFeedback()[entry.id] ?? 0.5,
+        dMix: chainDelayMix()[entry.id] ?? 0.5,
+      }),
     );
 
     if (specs.length === 1) {
@@ -891,6 +893,7 @@ const TransformPanel: Component<{
                     <option value="Gain">Gain</option>
                     <option value="ParametricEq">Parametric EQ</option>
                     <option value="PitchShift">Pitch Shift</option>
+                    <option value="SpectralDelay">Spectral Delay</option>
                   </select>
                   <div class="tp-chain-actions">
                     <button
