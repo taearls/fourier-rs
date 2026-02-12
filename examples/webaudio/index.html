@@ -1,0 +1,743 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>fourier-core WebAudio Demo</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: 'SF Mono', 'Cascadia Code', 'Fira Code', monospace;
+      background: #0f0f23;
+      color: #e0e0e0;
+      padding: 1.5em;
+      min-height: 100vh;
+    }
+    h1 { color: #16c784; font-size: 1.4em; margin-bottom: 0.3em; }
+    .subtitle { color: #888; font-size: 0.85em; margin-bottom: 1.5em; }
+
+    /* Layout */
+    .app { max-width: 900px; margin: 0 auto; }
+    .row { display: flex; gap: 1em; margin-bottom: 1em; }
+    .row > * { flex: 1; }
+
+    /* Panels */
+    .panel {
+      background: #1a1a2e;
+      border: 1px solid #333;
+      border-radius: 6px;
+      padding: 1em;
+    }
+    .panel h2 {
+      font-size: 0.85em;
+      color: #16c784;
+      text-transform: uppercase;
+      letter-spacing: 0.1em;
+      margin-bottom: 0.8em;
+    }
+
+    /* Buttons */
+    .btn {
+      background: #16c784;
+      color: #0f0f23;
+      border: none;
+      padding: 0.6em 1.2em;
+      cursor: pointer;
+      font-family: inherit;
+      font-size: 0.9em;
+      font-weight: bold;
+      border-radius: 4px;
+      transition: opacity 0.15s;
+    }
+    .btn:hover { opacity: 0.85; }
+    .btn:disabled { opacity: 0.4; cursor: not-allowed; }
+    .btn-stop { background: #ef4444; color: white; }
+    .btn-sm { padding: 0.4em 0.8em; font-size: 0.8em; }
+
+    /* Controls */
+    .controls { display: flex; gap: 0.8em; align-items: center; flex-wrap: wrap; }
+    .control-group { display: flex; flex-direction: column; gap: 0.3em; }
+    .control-group label { font-size: 0.75em; color: #888; text-transform: uppercase; letter-spacing: 0.05em; }
+    select, input[type="range"] { font-family: inherit; background: #0f0f23; color: #e0e0e0; border: 1px solid #444; border-radius: 3px; padding: 0.3em; }
+    select { padding: 0.4em 0.6em; font-size: 0.85em; }
+    input[type="range"] { width: 160px; accent-color: #16c784; }
+    .value-display { font-size: 0.8em; color: #16c784; min-width: 60px; text-align: right; }
+
+    /* Canvas */
+    canvas {
+      display: block;
+      width: 100%;
+      height: 200px;
+      background: #0f0f23;
+      border-radius: 4px;
+      border: 1px solid #333;
+    }
+
+    /* Status */
+    .status {
+      display: flex;
+      align-items: center;
+      gap: 0.5em;
+      font-size: 0.8em;
+    }
+    .status-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: #555;
+      transition: background 0.3s;
+    }
+    .status-dot.active { background: #16c784; }
+    .status-dot.error { background: #ef4444; }
+
+    /* Log */
+    .log {
+      background: #0f0f23;
+      padding: 0.8em;
+      border-radius: 4px;
+      font-size: 0.75em;
+      max-height: 120px;
+      overflow-y: auto;
+      line-height: 1.5;
+    }
+    .log .info { color: #888; }
+    .log .ok { color: #16c784; }
+    .log .err { color: #ef4444; }
+    .log .warn { color: #eab308; }
+
+    /* Fallback notice */
+    .fallback-notice {
+      background: #332800;
+      border: 1px solid #665200;
+      border-radius: 6px;
+      padding: 1em;
+      margin-bottom: 1em;
+      font-size: 0.85em;
+    }
+    .fallback-notice h3 { color: #eab308; margin-bottom: 0.5em; }
+    .fallback-notice pre {
+      background: #0f0f23;
+      padding: 0.6em;
+      border-radius: 3px;
+      margin-top: 0.5em;
+      overflow-x: auto;
+    }
+  </style>
+</head>
+<body>
+  <div class="app">
+    <h1>fourier-core WebAudio</h1>
+    <p class="subtitle">Real-time spectral audio processing in the browser via WASM + AudioWorklet</p>
+
+    <!-- Fallback notice shown when WASM is not built -->
+    <div id="fallback-notice" class="fallback-notice" style="display: none;">
+      <h3>WASM module not found</h3>
+      <p>Build the WASM package first:</p>
+      <pre>cd crates/core
+wasm-pack build --target no-modules --features wasm --out-dir ../../examples/webaudio/pkg</pre>
+      <p>Or use the build script: <code>./build.sh</code></p>
+      <p style="margin-top: 0.5em;">Running in <strong>JS fallback mode</strong> with simulated spectrum.</p>
+    </div>
+
+    <!-- Transport -->
+    <div class="row">
+      <div class="panel">
+        <h2>Transport</h2>
+        <div class="controls">
+          <button id="btn-start" class="btn">Start Mic Input</button>
+          <button id="btn-stop" class="btn btn-stop" disabled>Stop</button>
+          <div class="control-group">
+            <label>Bypass</label>
+            <label style="font-size: 0.9em; color: #e0e0e0;">
+              <input type="checkbox" id="chk-bypass" /> Pass-through
+            </label>
+          </div>
+          <div class="status">
+            <div id="status-dot" class="status-dot"></div>
+            <span id="status-text">Stopped</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Visualization -->
+    <div class="row">
+      <div class="panel" style="flex: 2;">
+        <h2>Spectrum</h2>
+        <canvas id="spectrum-canvas"></canvas>
+      </div>
+    </div>
+
+    <!-- Transform controls -->
+    <div class="row">
+      <div class="panel">
+        <h2>Spectral Transform</h2>
+        <div class="controls">
+          <div class="control-group">
+            <label>Transform</label>
+            <select id="sel-transform">
+              <option value="identity">None (Identity)</option>
+              <option value="lowPass">Low-Pass Filter</option>
+              <option value="highPass">High-Pass Filter</option>
+              <option value="bandPass">Band-Pass Filter</option>
+              <option value="gain">Gain</option>
+              <option value="pitchShift">Pitch Shift</option>
+              <option value="spectralDelay">Spectral Delay</option>
+            </select>
+          </div>
+          <!-- Dynamic params container -->
+          <div id="transform-params" class="controls"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- FFT settings -->
+    <div class="row">
+      <div class="panel">
+        <h2>Settings</h2>
+        <div class="controls">
+          <div class="control-group">
+            <label>FFT Size</label>
+            <select id="sel-fft-size">
+              <option value="512">512</option>
+              <option value="1024">1024</option>
+              <option value="2048" selected>2048</option>
+              <option value="4096">4096</option>
+            </select>
+          </div>
+          <div class="control-group">
+            <label>Window</label>
+            <select id="sel-window">
+              <option value="hann" selected>Hann</option>
+              <option value="hamming">Hamming</option>
+              <option value="blackman">Blackman</option>
+              <option value="rectangular">Rectangular</option>
+            </select>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Log -->
+    <div class="row">
+      <div class="panel">
+        <h2>Log</h2>
+        <div id="log" class="log"></div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // -----------------------------------------------------------------------
+    // State
+    // -----------------------------------------------------------------------
+    let audioContext = null;
+    let micStream = null;
+    let sourceNode = null;
+    let workletNode = null;
+    let wasmAvailable = false;
+    let running = false;
+
+    // For JS-fallback spectrum visualization.
+    let fallbackAnalyser = null;
+
+    // -----------------------------------------------------------------------
+    // DOM refs
+    // -----------------------------------------------------------------------
+    const btnStart = document.getElementById('btn-start');
+    const btnStop = document.getElementById('btn-stop');
+    const chkBypass = document.getElementById('chk-bypass');
+    const statusDot = document.getElementById('status-dot');
+    const statusText = document.getElementById('status-text');
+    const selTransform = document.getElementById('sel-transform');
+    const transformParams = document.getElementById('transform-params');
+    const selFftSize = document.getElementById('sel-fft-size');
+    const selWindow = document.getElementById('sel-window');
+    const spectrumCanvas = document.getElementById('spectrum-canvas');
+    const spectrumCtx = spectrumCanvas.getContext('2d');
+    const fallbackNotice = document.getElementById('fallback-notice');
+    const logEl = document.getElementById('log');
+
+    // -----------------------------------------------------------------------
+    // Logging
+    // -----------------------------------------------------------------------
+    function log(msg, level = 'info') {
+      const span = document.createElement('div');
+      span.className = level;
+      span.textContent = `[${new Date().toLocaleTimeString()}] ${msg}`;
+      logEl.appendChild(span);
+      logEl.scrollTop = logEl.scrollHeight;
+    }
+
+    // -----------------------------------------------------------------------
+    // WASM detection
+    // -----------------------------------------------------------------------
+    async function checkWasm() {
+      try {
+        const resp = await fetch('./pkg/fourier_core.js', { method: 'HEAD' });
+        if (resp.ok) {
+          wasmAvailable = true;
+          log('WASM package detected', 'ok');
+        } else {
+          throw new Error('Not found');
+        }
+      } catch {
+        wasmAvailable = false;
+        fallbackNotice.style.display = 'block';
+        log('WASM package not found - running in JS fallback mode', 'warn');
+      }
+    }
+
+    // -----------------------------------------------------------------------
+    // Start audio pipeline
+    // -----------------------------------------------------------------------
+    async function start() {
+      try {
+        setStatus('starting');
+
+        // Request mic permission.
+        micStream = await navigator.mediaDevices.getUserMedia({
+          audio: {
+            echoCancellation: false,
+            noiseSuppression: false,
+            autoGainControl: false,
+          },
+        });
+        log('Microphone access granted', 'ok');
+
+        // Create AudioContext.
+        audioContext = new AudioContext();
+        log(`AudioContext: ${audioContext.sampleRate} Hz`, 'info');
+
+        sourceNode = audioContext.createMediaStreamSource(micStream);
+
+        if (wasmAvailable) {
+          await startWithWasm();
+        } else {
+          startWithFallback();
+        }
+
+        running = true;
+        btnStart.disabled = true;
+        btnStop.disabled = false;
+        selFftSize.disabled = true;
+        selWindow.disabled = true;
+        setStatus('active');
+        log('Audio pipeline running', 'ok');
+
+        // Start visualization loop.
+        requestAnimationFrame(drawSpectrum);
+      } catch (e) {
+        log(`Start failed: ${e.message}`, 'err');
+        setStatus('error');
+        stop();
+      }
+    }
+
+    async function startWithWasm() {
+      const fftSize = parseInt(selFftSize.value);
+      const windowType = selWindow.value;
+
+      // Load the no-modules WASM glue into a blob URL so the worklet can importScripts it.
+      // Then load the actual .wasm binary and initialize wasm_bindgen in the worklet.
+      //
+      // Strategy: We create a combined worklet script that:
+      // 1. importScripts the wasm-bindgen glue JS
+      // 2. Initializes wasm_bindgen with the .wasm binary
+      // 3. Registers the AudioWorkletProcessor
+
+      // First, fetch the glue JS to get its text.
+      const glueResp = await fetch('./pkg/fourier_core.js');
+      const glueText = await glueResp.text();
+
+      // Fetch the WASM binary.
+      const wasmResp = await fetch('./pkg/fourier_core_bg.wasm');
+      const wasmBytes = await wasmResp.arrayBuffer();
+
+      // Read the worklet processor source.
+      const workletResp = await fetch('./fourier-worklet.js');
+      const workletText = await workletResp.text();
+
+      // Create a combined script: glue + worklet processor.
+      // The wasm_bindgen glue for no-modules target defines a global `wasm_bindgen` function
+      // that we call with the WASM bytes to initialize.
+      const combinedScript = `
+        // === wasm-bindgen glue (no-modules) ===
+        ${glueText}
+
+        // === Worklet processor ===
+        ${workletText}
+      `;
+
+      const blob = new Blob([combinedScript], { type: 'application/javascript' });
+      const blobUrl = URL.createObjectURL(blob);
+
+      try {
+        await audioContext.audioWorklet.addModule(blobUrl);
+        log('AudioWorklet module loaded', 'ok');
+      } finally {
+        URL.revokeObjectURL(blobUrl);
+      }
+
+      workletNode = new AudioWorkletNode(audioContext, 'fourier-processor', {
+        numberOfInputs: 1,
+        numberOfOutputs: 1,
+        outputChannelCount: [1],
+      });
+
+      // Listen for messages from worklet.
+      workletNode.port.onmessage = (event) => {
+        const msg = event.data;
+        switch (msg.type) {
+          case 'ready':
+            log('WASM OLA processor initialized in worklet', 'ok');
+            // Apply initial transform.
+            sendTransform();
+            break;
+          case 'spectrum':
+            // Store latest spectrum for visualization.
+            latestSpectrum = msg.data;
+            break;
+          case 'error':
+            log(`Worklet: ${msg.message}`, 'err');
+            break;
+        }
+      };
+
+      // Initialize the WASM module in the worklet by sending the binary.
+      // Since we bundled the glue, we need to initialize wasm_bindgen.
+      // Post a message to trigger init after the worklet is instantiated.
+      workletNode.port.postMessage({
+        type: 'init-wasm',
+        wasmBytes: wasmBytes,
+        fftSize: fftSize,
+        hopSize: Math.floor(fftSize / 2),
+        windowType: windowType,
+      }, [wasmBytes]);
+
+      // Connect: mic → worklet → speakers.
+      sourceNode.connect(workletNode);
+      workletNode.connect(audioContext.destination);
+    }
+
+    function startWithFallback() {
+      // JS fallback: use AnalyserNode for visualization, pass audio through.
+      fallbackAnalyser = audioContext.createAnalyser();
+      fallbackAnalyser.fftSize = parseInt(selFftSize.value);
+      fallbackAnalyser.smoothingTimeConstant = 0.8;
+
+      sourceNode.connect(fallbackAnalyser);
+      fallbackAnalyser.connect(audioContext.destination);
+
+      log('Running with JS AnalyserNode (no WASM processing)', 'warn');
+    }
+
+    // -----------------------------------------------------------------------
+    // Stop
+    // -----------------------------------------------------------------------
+    function stop() {
+      if (workletNode) {
+        workletNode.disconnect();
+        workletNode = null;
+      }
+      if (fallbackAnalyser) {
+        fallbackAnalyser.disconnect();
+        fallbackAnalyser = null;
+      }
+      if (sourceNode) {
+        sourceNode.disconnect();
+        sourceNode = null;
+      }
+      if (micStream) {
+        micStream.getTracks().forEach((t) => t.stop());
+        micStream = null;
+      }
+      if (audioContext) {
+        audioContext.close();
+        audioContext = null;
+      }
+
+      running = false;
+      latestSpectrum = null;
+      btnStart.disabled = false;
+      btnStop.disabled = true;
+      selFftSize.disabled = false;
+      selWindow.disabled = false;
+      setStatus('stopped');
+      log('Stopped', 'info');
+    }
+
+    // -----------------------------------------------------------------------
+    // Transform management
+    // -----------------------------------------------------------------------
+    function sendTransform() {
+      if (!workletNode) return;
+      const transformType = selTransform.value;
+      const params = getTransformParams(transformType);
+      workletNode.port.postMessage({ type: 'setTransform', transform: transformType, params });
+    }
+
+    function getTransformParams(transformType) {
+      switch (transformType) {
+        case 'lowPass':
+          return { cutoff: parseFloat(document.getElementById('param-cutoff')?.value || 2000) };
+        case 'highPass':
+          return { cutoff: parseFloat(document.getElementById('param-cutoff')?.value || 200) };
+        case 'bandPass':
+          return {
+            low: parseFloat(document.getElementById('param-low')?.value || 200),
+            high: parseFloat(document.getElementById('param-high')?.value || 2000),
+          };
+        case 'gain':
+          return { gain: parseFloat(document.getElementById('param-gain')?.value || 1.0) };
+        case 'pitchShift':
+          return { semitones: parseFloat(document.getElementById('param-semitones')?.value || 0) };
+        case 'spectralDelay':
+          return {
+            delayFrames: parseInt(document.getElementById('param-delay-frames')?.value || 4),
+            feedback: parseFloat(document.getElementById('param-feedback')?.value || 0.5),
+            mix: parseFloat(document.getElementById('param-mix')?.value || 0.5),
+          };
+        default:
+          return {};
+      }
+    }
+
+    function buildTransformUI(transformType) {
+      transformParams.innerHTML = '';
+
+      const makeSlider = (id, label, min, max, value, step, unit) => {
+        const group = document.createElement('div');
+        group.className = 'control-group';
+        const lbl = document.createElement('label');
+        lbl.textContent = label;
+        group.appendChild(lbl);
+
+        const row = document.createElement('div');
+        row.style.display = 'flex';
+        row.style.alignItems = 'center';
+        row.style.gap = '0.4em';
+
+        const input = document.createElement('input');
+        input.type = 'range';
+        input.id = id;
+        input.min = min;
+        input.max = max;
+        input.value = value;
+        input.step = step;
+        input.addEventListener('input', () => {
+          display.textContent = `${parseFloat(input.value).toFixed(step < 1 ? 1 : 0)} ${unit}`;
+          sendTransform();
+        });
+
+        const display = document.createElement('span');
+        display.className = 'value-display';
+        display.textContent = `${parseFloat(value).toFixed(step < 1 ? 1 : 0)} ${unit}`;
+
+        row.appendChild(input);
+        row.appendChild(display);
+        group.appendChild(row);
+        transformParams.appendChild(group);
+      };
+
+      switch (transformType) {
+        case 'lowPass':
+          makeSlider('param-cutoff', 'Cutoff', 20, 20000, 2000, 1, 'Hz');
+          break;
+        case 'highPass':
+          makeSlider('param-cutoff', 'Cutoff', 20, 20000, 200, 1, 'Hz');
+          break;
+        case 'bandPass':
+          makeSlider('param-low', 'Low', 20, 20000, 200, 1, 'Hz');
+          makeSlider('param-high', 'High', 20, 20000, 2000, 1, 'Hz');
+          break;
+        case 'gain':
+          makeSlider('param-gain', 'Gain', 0, 3, 1.0, 0.1, 'x');
+          break;
+        case 'pitchShift':
+          makeSlider('param-semitones', 'Semitones', -24, 24, 0, 0.1, 'st');
+          break;
+        case 'spectralDelay':
+          makeSlider('param-delay-frames', 'Delay', 1, 64, 4, 1, 'frames');
+          makeSlider('param-feedback', 'Feedback', 0, 0.95, 0.5, 0.01, '');
+          makeSlider('param-mix', 'Mix', 0, 1, 0.5, 0.01, '');
+          break;
+      }
+    }
+
+    // -----------------------------------------------------------------------
+    // Spectrum visualization
+    // -----------------------------------------------------------------------
+    let latestSpectrum = null;
+
+    function drawSpectrum() {
+      if (!running) {
+        clearCanvas();
+        return;
+      }
+      requestAnimationFrame(drawSpectrum);
+
+      // Resize canvas to CSS dimensions with devicePixelRatio.
+      const dpr = window.devicePixelRatio || 1;
+      const rect = spectrumCanvas.getBoundingClientRect();
+      const w = rect.width * dpr;
+      const h = rect.height * dpr;
+      if (spectrumCanvas.width !== w || spectrumCanvas.height !== h) {
+        spectrumCanvas.width = w;
+        spectrumCanvas.height = h;
+      }
+      spectrumCtx.setTransform(dpr, 0, 0, dpr, 0, 0);
+
+      const cssW = rect.width;
+      const cssH = rect.height;
+
+      spectrumCtx.clearRect(0, 0, cssW, cssH);
+
+      // Draw grid.
+      spectrumCtx.strokeStyle = '#222';
+      spectrumCtx.lineWidth = 0.5;
+      for (let db = -90; db <= 0; db += 10) {
+        const y = cssH * (1 - (db + 90) / 90);
+        spectrumCtx.beginPath();
+        spectrumCtx.moveTo(0, y);
+        spectrumCtx.lineTo(cssW, y);
+        spectrumCtx.stroke();
+      }
+
+      // Frequency ticks.
+      const minFreq = 20, maxFreq = 20000;
+      const logMin = Math.log10(minFreq), logMax = Math.log10(maxFreq);
+      const freqTicks = [50, 100, 200, 500, 1000, 2000, 5000, 10000, 20000];
+      spectrumCtx.strokeStyle = '#1a1a2e';
+      freqTicks.forEach((f) => {
+        const x = cssW * (Math.log10(f) - logMin) / (logMax - logMin);
+        spectrumCtx.beginPath();
+        spectrumCtx.moveTo(x, 0);
+        spectrumCtx.lineTo(x, cssH);
+        spectrumCtx.stroke();
+      });
+
+      // Labels.
+      spectrumCtx.fillStyle = '#555';
+      spectrumCtx.font = '10px monospace';
+      freqTicks.forEach((f) => {
+        const x = cssW * (Math.log10(f) - logMin) / (logMax - logMin);
+        spectrumCtx.fillText(f >= 1000 ? `${f / 1000}k` : `${f}`, x - 6, cssH - 4);
+      });
+      spectrumCtx.fillText('0 dB', 4, 12);
+      spectrumCtx.fillText('-90 dB', 4, cssH - 14);
+
+      let magDb = null;
+      let sr = 48000;
+      let fftSz = parseInt(selFftSize.value);
+
+      if (latestSpectrum && wasmAvailable) {
+        // WASM spectrum: interleaved [re, im, ...]. Convert to dB magnitudes.
+        const n = latestSpectrum.length / 2;
+        magDb = new Float32Array(n);
+        for (let i = 0; i < n; i++) {
+          const re = latestSpectrum[i * 2];
+          const im = latestSpectrum[i * 2 + 1];
+          const mag = Math.hypot(re, im);
+          magDb[i] = mag > 0 ? 20 * Math.log10(mag) : -90;
+        }
+        sr = audioContext?.sampleRate || 48000;
+      } else if (fallbackAnalyser) {
+        // JS fallback: use AnalyserNode frequency data.
+        fftSz = fallbackAnalyser.fftSize;
+        const bins = fallbackAnalyser.frequencyBinCount;
+        const data = new Float32Array(bins);
+        fallbackAnalyser.getFloatFrequencyData(data);
+        magDb = data;
+        sr = audioContext?.sampleRate || 48000;
+      }
+
+      if (!magDb) return;
+
+      // Draw spectrum line.
+      spectrumCtx.strokeStyle = '#16c784';
+      spectrumCtx.lineWidth = 1.5;
+      spectrumCtx.beginPath();
+      let started = false;
+
+      for (let i = 1; i < magDb.length; i++) {
+        const freq = i * sr / fftSz;
+        if (freq < minFreq || freq > maxFreq) continue;
+
+        const x = cssW * (Math.log10(freq) - logMin) / (logMax - logMin);
+        const db = Math.max(-90, Math.min(0, magDb[i]));
+        const y = cssH * (1 - (db + 90) / 90);
+
+        if (!started) {
+          spectrumCtx.moveTo(x, y);
+          started = true;
+        } else {
+          spectrumCtx.lineTo(x, y);
+        }
+      }
+      spectrumCtx.stroke();
+
+      // Filled area under the line.
+      if (started) {
+        spectrumCtx.lineTo(cssW, cssH);
+        spectrumCtx.lineTo(0, cssH);
+        spectrumCtx.closePath();
+        spectrumCtx.fillStyle = 'rgba(22, 199, 132, 0.08)';
+        spectrumCtx.fill();
+      }
+    }
+
+    function clearCanvas() {
+      const dpr = window.devicePixelRatio || 1;
+      const rect = spectrumCanvas.getBoundingClientRect();
+      spectrumCtx.clearRect(0, 0, rect.width * dpr, rect.height * dpr);
+    }
+
+    // -----------------------------------------------------------------------
+    // Status indicator
+    // -----------------------------------------------------------------------
+    function setStatus(state) {
+      statusDot.className = 'status-dot';
+      switch (state) {
+        case 'active':
+          statusDot.classList.add('active');
+          statusText.textContent = wasmAvailable ? 'WASM Processing' : 'JS Fallback';
+          break;
+        case 'starting':
+          statusText.textContent = 'Starting...';
+          break;
+        case 'error':
+          statusDot.classList.add('error');
+          statusText.textContent = 'Error';
+          break;
+        default:
+          statusText.textContent = 'Stopped';
+      }
+    }
+
+    // -----------------------------------------------------------------------
+    // Event listeners
+    // -----------------------------------------------------------------------
+    btnStart.addEventListener('click', start);
+    btnStop.addEventListener('click', stop);
+    chkBypass.addEventListener('change', () => {
+      if (workletNode) {
+        workletNode.port.postMessage({ type: 'bypass', value: chkBypass.checked });
+      }
+    });
+    selTransform.addEventListener('change', () => {
+      buildTransformUI(selTransform.value);
+      sendTransform();
+    });
+
+    // -----------------------------------------------------------------------
+    // Init
+    // -----------------------------------------------------------------------
+    (async () => {
+      await checkWasm();
+      buildTransformUI(selTransform.value);
+      log('Ready. Click "Start Mic Input" to begin.', 'ok');
+    })();
+  </script>
+</body>
+</html>
