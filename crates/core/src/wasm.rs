@@ -608,7 +608,8 @@ impl WasmOverlapAddProcessor {
 
     /// Set the spectral transform to apply during processing.
     ///
-    /// Takes ownership of the `WasmTransform`.
+    /// **Note:** This consumes the `WasmTransform`. In JavaScript, the
+    /// transform object should not be used after passing it to this method.
     #[wasm_bindgen(js_name = "setTransform")]
     pub fn set_transform(&mut self, transform: WasmTransform) {
         self.transform = transform.inner;
@@ -650,5 +651,178 @@ impl WasmOverlapAddProcessor {
             out.push(c.im);
         }
         out
+    }
+}
+
+// ---------------------------------------------------------------------------
+// Tests
+// ---------------------------------------------------------------------------
+
+#[cfg(test)]
+#[allow(clippy::unwrap_used, clippy::expect_used)]
+mod tests {
+    use super::*;
+
+    // -- parse_waveform -------------------------------------------------------
+
+    #[test]
+    fn parse_waveform_valid_variants() {
+        assert!(parse_waveform("sine").is_ok());
+        assert!(parse_waveform("square").is_ok());
+        assert!(parse_waveform("sawtooth").is_ok());
+        assert!(parse_waveform("triangle").is_ok());
+    }
+
+    #[test]
+    fn parse_waveform_case_insensitive() {
+        assert!(parse_waveform("SINE").is_ok());
+        assert!(parse_waveform("Sawtooth").is_ok());
+        assert!(parse_waveform("TRIANGLE").is_ok());
+    }
+
+    // NOTE: Error-path tests (unknown waveform/noise/window strings, wrong-length
+    // spectrum) require `wasm-pack test` because `JsError::new()` panics on
+    // non-WASM targets. The valid-input and conversion tests above cover the
+    // native-testable logic.
+
+    // -- parse_noise_type -----------------------------------------------------
+
+    #[test]
+    fn parse_noise_type_valid_variants() {
+        assert!(parse_noise_type("white").is_ok());
+        assert!(parse_noise_type("pink").is_ok());
+    }
+
+    #[test]
+    fn parse_noise_type_case_insensitive() {
+        assert!(parse_noise_type("WHITE").is_ok());
+        assert!(parse_noise_type("Pink").is_ok());
+    }
+
+    // -- parse_window_type ----------------------------------------------------
+
+    #[test]
+    fn parse_window_type_valid_variants() {
+        assert!(parse_window_type("hann").is_ok());
+        assert!(parse_window_type("hamming").is_ok());
+        assert!(parse_window_type("blackman").is_ok());
+        assert!(parse_window_type("rectangular").is_ok());
+        assert!(parse_window_type("rect").is_ok());
+    }
+
+    #[test]
+    fn parse_window_type_case_insensitive() {
+        assert!(parse_window_type("HANN").is_ok());
+        assert!(parse_window_type("Blackman").is_ok());
+        assert!(parse_window_type("RECT").is_ok());
+    }
+
+    // -- magnitude spectrum ---------------------------------------------------
+
+    #[test]
+    fn magnitude_spectrum_computes_correct_magnitudes() {
+        // Two bins: (3,4) and (0,1)
+        let interleaved = [3.0_f32, 4.0, 0.0, 1.0];
+        let mags = magnitude_spectrum(&interleaved);
+        assert_eq!(mags.len(), 2);
+        assert!((mags[0] - 5.0).abs() < 1e-6); // hypot(3,4) = 5
+        assert!((mags[1] - 1.0).abs() < 1e-6); // hypot(0,1) = 1
+    }
+
+    #[test]
+    fn magnitude_spectrum_empty_input() {
+        let mags = magnitude_spectrum(&[]);
+        assert!(mags.is_empty());
+    }
+
+    #[test]
+    fn magnitude_spectrum_db_zero_magnitude_is_neg_inf() {
+        let interleaved = [0.0_f32, 0.0];
+        let db = magnitude_spectrum_db(&interleaved);
+        assert_eq!(db.len(), 1);
+        assert!(db[0].is_infinite() && db[0].is_sign_negative());
+    }
+
+    #[test]
+    fn magnitude_spectrum_db_unit_magnitude_is_zero_db() {
+        // magnitude = 1.0 → 20*log10(1) = 0 dB
+        let interleaved = [1.0_f32, 0.0];
+        let db = magnitude_spectrum_db(&interleaved);
+        assert!((db[0]).abs() < 1e-6);
+    }
+
+    // -- bin/frequency conversion ---------------------------------------------
+
+    #[test]
+    fn bin_frequency_roundtrip() {
+        let sample_rate = 44100.0;
+        let fft_size = 2048;
+        let freq = 440.0;
+        let bin = frequency_to_bin(freq, sample_rate, fft_size);
+        let recovered = bin_to_frequency(bin, sample_rate, fft_size);
+        // Should be within one bin width of the original.
+        let bin_width = sample_rate / fft_size as f32;
+        assert!((recovered - freq).abs() <= bin_width);
+    }
+
+    // -- FFT roundtrip --------------------------------------------------------
+
+    #[test]
+    fn fft_forward_inverse_roundtrip() {
+        let size = 256;
+        let mut proc = WasmFftProcessor::new(size);
+
+        // Generate a simple sine wave.
+        let mut signal: Vec<f32> = (0..size)
+            .map(|i| (2.0 * std::f32::consts::PI * 5.0 * i as f32 / size as f32).sin())
+            .collect();
+        let original = signal.clone();
+
+        let spectrum = proc.forward(&mut signal).unwrap();
+        let reconstructed = proc.inverse(&spectrum).unwrap();
+
+        assert_eq!(reconstructed.len(), size);
+        let max_err = original
+            .iter()
+            .zip(reconstructed.iter())
+            .map(|(a, b)| (a - b).abs())
+            .fold(0.0_f32, f32::max);
+        assert!(max_err < 1e-3, "FFT roundtrip error too large: {max_err}");
+    }
+
+    // -- WasmTransform --------------------------------------------------------
+
+    #[test]
+    fn transform_identity_is_passthrough() {
+        let mut t = WasmTransform::identity();
+        let mut spectrum = vec![1.0, 2.0, 3.0, 4.0]; // two bins
+        let original = spectrum.clone();
+        t.process(&mut spectrum, 44100.0, 4);
+        assert_eq!(spectrum, original);
+    }
+
+    #[test]
+    fn transform_gain_scales_spectrum() {
+        let mut t = WasmTransform::gain(2.0);
+        let mut spectrum = vec![1.0, 0.0, 0.0, 1.0]; // (1+0i), (0+1i)
+        t.process(&mut spectrum, 44100.0, 4);
+        assert!((spectrum[0] - 2.0).abs() < 1e-6);
+        assert!((spectrum[1] - 0.0).abs() < 1e-6);
+        assert!((spectrum[2] - 0.0).abs() < 1e-6);
+        assert!((spectrum[3] - 2.0).abs() < 1e-6);
+    }
+
+    #[test]
+    fn transform_factory_methods_produce_named_transforms() {
+        assert!(!WasmTransform::identity().name().is_empty());
+        assert!(!WasmTransform::low_pass(1000.0).name().is_empty());
+        assert!(!WasmTransform::high_pass(1000.0).name().is_empty());
+        assert!(!WasmTransform::band_pass(200.0, 2000.0).name().is_empty());
+        assert!(!WasmTransform::gain(1.0).name().is_empty());
+        assert!(!WasmTransform::pitch_shift(0.0).name().is_empty());
+        assert!(!WasmTransform::spectral_freeze(false, 44100.0, 512)
+            .name()
+            .is_empty());
+        assert!(!WasmTransform::spectral_delay(4, 0.5, 0.5).name().is_empty());
     }
 }
