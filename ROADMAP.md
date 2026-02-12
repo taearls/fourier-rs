@@ -8,14 +8,14 @@
 
 ## Open Issues Summary
 
-**0 open issues** across 7 phases (29 completed) :tada:
+**22 open issues** across 12 phases (29 completed, 22 new)
 
 | Priority | Count | Issues |
 |----------|-------|--------|
-| :red_circle: Critical | 0 | &mdash; |
-| :yellow_circle: High | 0 | &mdash; |
-| :green_circle: Medium | 0 | &mdash; |
-| :large_blue_circle: Low | 0 | &mdash; |
+| :red_circle: Critical | 2 | #61, #62 |
+| :yellow_circle: High | 8 | #63, #64, #66, #71, #72, #75, #79, #80 |
+| :green_circle: Medium | 10 | #65, #67, #68, #70, #73, #76, #77, #78, #81, #82 |
+| :large_blue_circle: Low | 2 | #69, #74 |
 
 ---
 
@@ -207,6 +207,114 @@ The following capabilities already exist in the codebase:
 
 ---
 
+## Phase 8: MIDI Integration
+
+> **Goal:** Connect the existing MIDI crate to the engine and UI
+>
+> **Effort:** ~8 days &bull; **Status:** :construction: In Progress
+
+| # | Title | Priority | Effort | Dependencies |
+|---|-------|----------|--------|--------------|
+| #61 | Connect MIDI input to the engine processing loop | :red_circle: Critical | ~2 days | &mdash; |
+| #62 | Add MIDI-driven oscillator source (monophonic) | :red_circle: Critical | ~2 days | #61 |
+| #63 | Add MIDI CC mapping to engine parameters | :yellow_circle: High | ~1 day | #61 |
+| #64 | Add MIDI device selection Tauri commands and UI | :yellow_circle: High | ~2 days | #61 |
+| #65 | Add MIDI-driven source selection in the Tauri UI | :green_circle: Medium | ~1 day | #62, #64 |
+
+**Key deliverables:**
+- `MidiEventReceiver` wired into engine processing loop
+- `MidiOscillatorSource` with last-note-priority monophonic behavior
+- MIDI CC 7 (Volume) and CC 1 (Mod Wheel) mapped to engine parameters
+- MIDI device selection UI with connect/disconnect
+
+---
+
+## Phase 9: Advanced DSP
+
+> **Goal:** New spectral transforms for creative sound design
+>
+> **Effort:** ~10 days &bull; **Status:** :construction: In Progress
+
+| # | Title | Priority | Effort | Dependencies |
+|---|-------|----------|--------|--------------|
+| #66 | Add spectral morphing transform | :yellow_circle: High | ~2 days | &mdash; |
+| #67 | Add spectral gate/expander transform | :green_circle: Medium | ~1 day | &mdash; |
+| #68 | Add convolution reverb via spectral multiplication | :green_circle: Medium | ~3 days | &mdash; |
+| #69 | Add granular spectral scramble transform | :large_blue_circle: Low | ~2 days | &mdash; |
+| #70 | Add formant-preserving pitch shift | :green_circle: Medium | ~2 days | &mdash; |
+
+**Key deliverables:**
+- `SpectralMorph` with capture + interpolation
+- `SpectralGate` for noise reduction
+- `ConvolutionReverb` via spectral multiplication with IR
+- `SpectralScramble` for glitch textures
+- `FormantPitchShift` via cepstral envelope extraction
+
+---
+
+## Phase 10: Multi-Source Mixing
+
+> **Goal:** Multiple simultaneous sources with mixer controls
+>
+> **Effort:** ~8 days &bull; **Status:** :construction: In Progress
+
+| # | Title | Priority | Effort | Dependencies |
+|---|-------|----------|--------|--------------|
+| #71 | Add multi-source mixer architecture to the engine | :yellow_circle: High | ~3 days | &mdash; |
+| #72 | Add mixer channel strip UI | :yellow_circle: High | ~2 days | #71 |
+| #73 | Add per-source level metering | :green_circle: Medium | ~1 day | #71 |
+| #74 | Add sidechain input for spectral transforms | :large_blue_circle: Low | ~2 days | #71 |
+
+**Key deliverables:**
+- `MixerSpec` with per-channel gain/mute/solo
+- `<MixerPanel />` with channel strips
+- Per-channel RMS/peak metering with LED bars
+- Sidechain input for vocoder/cross-synthesis
+
+---
+
+## Phase 11: UI Polish
+
+> **Goal:** Quality-of-life improvements for daily use
+>
+> **Effort:** ~8 days &bull; **Status:** :construction: In Progress
+
+| # | Title | Priority | Effort | Dependencies |
+|---|-------|----------|--------|--------------|
+| #75 | Add keyboard shortcuts for common actions | :yellow_circle: High | ~1 day | &mdash; |
+| #76 | Add undo/redo for parameter changes | :green_circle: Medium | ~2 days | &mdash; |
+| #77 | Add responsive layout with collapsible panels | :green_circle: Medium | ~2 days | &mdash; |
+| #78 | Add spectrogram (waterfall) visualization mode | :green_circle: Medium | ~2 days | &mdash; |
+| #79 | Add audio device selection UI | :yellow_circle: High | ~1 day | &mdash; |
+
+**Key deliverables:**
+- Keyboard shortcuts (Space, F, B, M, 1-4, Ctrl+S, Ctrl+E, ?)
+- Undo/redo with 50-entry bounded history
+- Responsive layout below 900px with collapsible sections
+- `<SpectrogramDisplay />` scrolling heatmap
+- Input/output device selection dropdowns
+
+---
+
+## Phase 12: Distribution
+
+> **Goal:** Ship the app as a real product
+>
+> **Effort:** ~6 days &bull; **Status:** :construction: In Progress
+
+| # | Title | Priority | Effort | Dependencies |
+|---|-------|----------|--------|--------------|
+| #80 | Add macOS code signing and DMG packaging | :yellow_circle: High | ~2 days | &mdash; |
+| #81 | Add Tauri auto-update support | :green_circle: Medium | ~2 days | #80 |
+| #82 | Add integration test suite for Tauri commands | :green_circle: Medium | ~2 days | &mdash; |
+
+**Key deliverables:**
+- macOS code signing + notarization + DMG packaging
+- `tauri-plugin-updater` with GitHub Releases endpoint
+- `tauri::test` integration test suite for full command lifecycle
+
+---
+
 ## MVP Critical Path
 
 The minimum viable product requires completing these issues in order:
@@ -229,100 +337,88 @@ All 9 critical-path issues are now **complete** :white_check_mark:
 
 ## Current Sprint
 
-### NOW (Phase 1 Start)
+### NOW (Phase 8 Start)
 
-Start with dev infrastructure and the two critical Phase 1 issues that unblock everything:
+Connect the existing MIDI crate to the engine &mdash; the biggest remaining integration gap:
 
-1. ~~**#30** &mdash; Set up development infrastructure (linting, formatting, testing, CI)~~ `:white_check_mark:`
-2. ~~**#2** &mdash; Add oscillator module with standard waveforms~~ `:white_check_mark:`
-3. ~~**#5** &mdash; Integrate sound generation into engine as audio source~~ `:white_check_mark:`
+1. **#61** &mdash; Connect MIDI input to the engine processing loop :red_circle:
+2. **#62** &mdash; Add MIDI-driven oscillator source (monophonic) :red_circle:
+3. **#64** &mdash; Add MIDI device selection Tauri commands and UI :yellow_circle:
 
 ### NEXT UP
 
-App shell and engine commands done. Moving to streaming and source commands:
+Complete MIDI UX and add device selection:
 
-4. ~~**#6** &mdash; Create fourier-file-io crate with WAV reading~~ `:white_check_mark:`
-5. ~~**#13** &mdash; Scaffold Tauri v2 desktop application with SolidJS~~ `:white_check_mark:`
-6. ~~**#22** &mdash; Add serde serialization~~ `:white_check_mark:`
-7. ~~**#14** &mdash; Implement Tauri commands for engine lifecycle~~ `:white_check_mark:`
-8. ~~**#15** &mdash; Implement spectral snapshot streaming to frontend~~ `:white_check_mark:`
-9. ~~**#8** &mdash; Add loaded audio file as engine source~~ `:white_check_mark:`
-10. ~~**#16** &mdash; Implement Tauri commands for sound source selection~~ `:white_check_mark:`
-11. ~~**#17** &mdash; Build spectrum analyzer visualization with WebGL~~ `:white_check_mark:`
-12. ~~**#19** &mdash; Build transport and source control panel~~ `:white_check_mark:`
-13. ~~**#7** &mdash; Add WAV file writing/export~~ `:white_check_mark:`
-14. ~~**#25** &mdash; Add error handling and logging~~ `:white_check_mark:`
-15. ~~**#18** &mdash; Build waveform/oscilloscope display~~ `:white_check_mark:`
-16. ~~**#21** &mdash; Build peak frequency and note detection display~~ `:white_check_mark:`
+4. **#63** &mdash; Add MIDI CC mapping to engine parameters :yellow_circle:
+5. **#65** &mdash; Add MIDI-driven source selection in the Tauri UI :green_circle:
+6. **#79** &mdash; Add audio device selection UI :yellow_circle:
 
 ### PARALLEL TRACKS
 
-These can proceed independently alongside the critical path:
+These can proceed independently alongside MIDI integration:
 
-- **DSP track:** ~~#9 (Parametric EQ)~~, ~~#10 (Spectral delay)~~, ~~#11 (Freeze)~~, ~~#12 (Pitch shift)~~ :white_check_mark:
-- **File I/O track:** ~~#6~~, ~~#7~~ (WAV read/write) :white_check_mark:
-- **Polish track:** ~~#25~~, ~~#26~~ (error handling, CI) :white_check_mark:
+- **DSP track:** #66 (Spectral morph), #67 (Spectral gate), #68 (Convolution reverb), #70 (Formant pitch shift)
+- **UI track:** #75 (Keyboard shortcuts), #78 (Spectrogram)
+- **Mixer track:** #71 (Mixer architecture), #72 (Mixer UI)
+- **Distribution track:** #80 (macOS signing), #82 (Integration tests)
 
 ---
 
 ## Recommended Implementation Order
 
-### Batch 1: Foundations (Week 1)
-| Order | Issue | Rationale |
-|-------|-------|-----------|
-| ~~1~~ | ~~#30 Dev infrastructure~~ | ~~Establish linting, formatting, CI before new code~~ :white_check_mark: |
-| ~~2~~ | ~~#2 Oscillator module~~ | ~~Unblocks all sound generation~~ :white_check_mark: |
-| ~~3~~ | ~~#5 Engine source integration~~ | ~~Connects generators to pipeline~~ :white_check_mark: |
-| ~~4~~ | ~~#3 Noise generators~~ | ~~Parallel with #5, simple module~~ :white_check_mark: |
+### Phases 1-7 (Complete) :white_check_mark:
 
-### Batch 2: File I/O + DSP (Week 2)
-| Order | Issue | Rationale |
-|-------|-------|-----------|
-| ~~5~~ | ~~#6 WAV reading~~ | ~~Unblocks file playback~~ :white_check_mark: |
-| ~~6~~ | ~~#7 WAV writing~~ | ~~Small addition to #6~~ :white_check_mark: |
-| ~~7~~ | ~~#9 Parametric EQ~~ | ~~Key DSP feature~~ :white_check_mark: |
-| ~~8~~ | ~~#4 Additive synthesis~~ | ~~Depends on #2, enriches sources~~ :white_check_mark: |
+All 29 issues across phases 1-7 have been completed. See phase sections above for details.
 
-### Batch 3: App Shell (Week 3)
+### Batch 8: MIDI Data Path (Weeks 9-10)
 | Order | Issue | Rationale |
 |-------|-------|-----------|
-| ~~9~~ | ~~#13 Tauri scaffold~~ | ~~Unblocks all frontend work~~ :white_check_mark: |
-| ~~10~~ | ~~#22 Serde serialization~~ | ~~Needed for Tauri IPC~~ :white_check_mark: |
-| ~~11~~ | ~~#25 Error handling~~ | ~~Clean up before more code~~ :white_check_mark: |
-| ~~12~~ | ~~#8 Audio file source~~ | ~~Depends on #5, #6~~ :white_check_mark: |
+| 30 | #61 Connect MIDI input to engine | Establishes MIDI data path, unblocks all MIDI features |
+| 31 | #62 MIDI oscillator source | First playable MIDI instrument |
+| 32 | #64 MIDI device selection UI | Lets users pick MIDI controller |
 
-### Batch 4: Engine Commands (Week 4)
+### Batch 9: MIDI UX + Devices (Weeks 10-11)
 | Order | Issue | Rationale |
 |-------|-------|-----------|
-| ~~13~~ | ~~#14 Engine lifecycle commands~~ | ~~Core Tauri API~~ :white_check_mark: |
-| ~~14~~ | ~~#15 Spectral streaming~~ | ~~Enables visualization~~ :white_check_mark: |
-| ~~15~~ | ~~#16 Source selection commands~~ | ~~Enables source UI~~ :white_check_mark: |
+| 33 | #63 MIDI CC mapping | CC 7 volume, CC 1 mod wheel |
+| 34 | #65 MIDI source in UI | Complete MIDI frontend |
+| 35 | #79 Audio device selection | Choose input/output devices |
 
-### Batch 5: UI (Weeks 5-6)
+### Batch 10: DSP + Shortcuts (Weeks 11-12)
 | Order | Issue | Rationale |
 |-------|-------|-----------|
-| ~~16~~ | ~~#17 Spectrum analyzer (WebGL)~~ | ~~Flagship visualization~~ :white_check_mark: |
-| ~~17~~ | ~~#19 Transport/source control panel~~ | ~~Core user interaction~~ :white_check_mark: |
-| ~~18~~ | ~~#18 Waveform display~~ | ~~Second visualization~~ :white_check_mark: |
-| ~~19~~ | ~~#20 Transform control panel~~ | ~~Effect parameter UI~~ :white_check_mark: |
-| ~~20~~ | ~~#21 Note detection display~~ | ~~Tuner feature~~ :white_check_mark: |
+| 36 | #66 Spectral morphing | High-impact creative transform |
+| 37 | #67 Spectral gate | Noise reduction utility |
+| 38 | #75 Keyboard shortcuts | Fast workflow for power users |
 
-### Batch 6: Workflow + DSP Extras (Week 7)
+### Batch 11: Mixer + Spectrogram (Weeks 12-13)
 | Order | Issue | Rationale |
 |-------|-------|-----------|
-| ~~21~~ | ~~#23 Preset system~~ | ~~UX polish~~ :white_check_mark: |
-| ~~22~~ | ~~#24 Audio export~~ | ~~Render to file~~ :white_check_mark: |
-| ~~23~~ | ~~#11 Spectral freeze~~ | ~~Creative effect~~ :white_check_mark: |
-| ~~24~~ | ~~#12 Pitch shifting~~ | ~~Creative effect~~ :white_check_mark: |
+| 39 | #71 Mixer architecture | Multi-source engine support |
+| 40 | #72 Mixer channel strip UI | Visual mixer controls |
+| 41 | #78 Spectrogram display | Time-history visualization |
 
-### Batch 7: Future (Week 8+)
+### Batch 12: Reverb + Polish (Weeks 13-14)
 | Order | Issue | Rationale |
 |-------|-------|-----------|
-| ~~25~~ | ~~#10 Spectral delay~~ | ~~Niche effect~~ :white_check_mark: |
-| ~~26~~ | ~~#26 CI pipeline~~ | ~~Stable + nightly matrix, caching~~ :white_check_mark: |
-| ~~27~~ | ~~#51 Optimize CI workflow~~ | ~~Drop nightly, reduce overhead~~ :white_check_mark: |
-| ~~28~~ | ~~#27 WASM compilation~~ | ~~Web readiness~~ :white_check_mark: |
-| ~~29~~ | ~~#28 WebAudio integration~~ | ~~Browser demo~~ :white_check_mark: |
+| 42 | #68 Convolution reverb | Realistic room acoustics |
+| 43 | #70 Formant pitch shift | Natural voice shifting |
+| 44 | #76 Undo/redo | Non-destructive parameter experimentation |
+
+### Batch 13: Metering + Layout + Tests (Weeks 14-15)
+| Order | Issue | Rationale |
+|-------|-------|-----------|
+| 45 | #73 Per-source metering | Visual level feedback for mixing |
+| 46 | #77 Responsive layout | Adaptive UI for different window sizes |
+| 47 | #82 Integration tests | Automated command lifecycle testing |
+
+### Batch 14: Final (Weeks 15-16)
+| Order | Issue | Rationale |
+|-------|-------|-----------|
+| 48 | #69 Spectral scramble | Glitch texture effects |
+| 49 | #74 Sidechain input | Vocoder/cross-synthesis |
+| 50 | #80 macOS code signing | Distribution-ready packaging |
+| 51 | #81 Auto-update | Seamless version updates |
 
 ---
 
@@ -337,7 +433,33 @@ These can proceed independently alongside the critical path:
 | 5 &mdash; UI | 5 | 0 | 0 | 0 | 0 | 5 |
 | 6 &mdash; Workflow | 3 | 0 | 0 | 0 | 0 | 3 |
 | 7 &mdash; Polish/Web | 6 | 0 | 0 | 0 | 0 | 6 |
-| **Total** | **29** | **0** | **0** | **0** | **0** | **29** |
+| 8 &mdash; MIDI | 5 | 2 | 2 | 1 | 0 | 0 |
+| 9 &mdash; Adv. DSP | 5 | 0 | 1 | 3 | 1 | 0 |
+| 10 &mdash; Mixing | 4 | 0 | 2 | 1 | 1 | 0 |
+| 11 &mdash; UI Polish | 5 | 0 | 2 | 3 | 0 | 0 |
+| 12 &mdash; Distribution | 3 | 0 | 1 | 2 | 0 | 0 |
+| **Total** | **51** | **2** | **8** | **10** | **2** | **29** |
+
+---
+
+## Dependency Graph (Phases 8-12)
+
+```
+Phase 8 (MIDI):        #61 ──┬── #62 ──┐
+                              ├── #63   ├── #65
+                              └── #64 ──┘
+
+Phase 9 (DSP):         #66, #67, #68, #69, #70  (all independent)
+
+Phase 10 (Mixing):     #71 ──┬── #72
+                              ├── #73
+                              └── #74
+
+Phase 11 (UI):         #75, #76, #77, #78, #79  (all independent)
+
+Phase 12 (Distribution): #80 ── #81
+                         #82  (independent)
+```
 
 ---
 
@@ -358,6 +480,15 @@ These can proceed independently alongside the critical path:
 ## Changelog
 
 ### 2026-02-12
+- **Added 22 new issues** across 5 new phases (8-12) for continued development:
+  - **Phase 8: MIDI Integration** (#61-#65) &mdash; connect `fourier-midi` crate to engine, MIDI oscillator source, CC mapping, device selection UI
+  - **Phase 9: Advanced DSP** (#66-#70) &mdash; spectral morphing, spectral gate, convolution reverb, spectral scramble, formant-preserving pitch shift
+  - **Phase 10: Multi-Source Mixing** (#71-#74) &mdash; mixer architecture, channel strip UI, per-source metering, sidechain input
+  - **Phase 11: UI Polish** (#75-#79) &mdash; keyboard shortcuts, undo/redo, responsive layout, spectrogram, audio device selection
+  - **Phase 12: Distribution** (#80-#82) &mdash; macOS code signing/DMG, auto-update, integration tests
+- Created 5 new phase labels: `phase: 8-midi`, `phase: 9-dsp`, `phase: 10-mixing`, `phase: 11-ui`, `phase: 12-dist`
+- Updated roadmap with new phases, implementation order (batches 8-14), dependency graph, and issue status summary
+- Estimated ~8 additional weeks for all 22 new issues
 - **Completed #28** (WebAudio integration layer) &mdash; created `examples/webaudio/` with full browser-based real-time spectral audio processing demo; `fourier-worklet.js` AudioWorkletProcessor that initializes `wasm_bindgen` with WASM binary in the audio rendering thread, creates `WasmOverlapAddProcessor` for streaming FFT-based spectral processing of 128-sample audio frames, supports dynamic transform switching via message passing (`identity`, `lowPass`, `highPass`, `bandPass`, `gain`, `pitchShift`, `spectralFreeze`, `spectralDelay`), posts spectrum snapshots to main thread as transferable `Float32Array` for zero-copy visualization (~5 fps); `index.html` example page with: `getUserMedia` microphone input (echo cancellation/noise suppression/auto-gain disabled for clean signal), `AudioContext` creation and AudioWorklet module loading via blob URL bundling wasm-bindgen glue JS + worklet processor, WASM binary sent to worklet via `port.postMessage` with transferable `ArrayBuffer`, full mic&rarr;WASM FFT&rarr;spectral transform&rarr;WASM IFFT&rarr;speakers pipeline, Canvas-based spectrum visualization with log-frequency axis (20 Hz&ndash;20 kHz) and dB magnitude (-90 to 0 dB) with filled area under curve, transform control panel with type selector and dynamic parameter sliders (cutoff frequency, band range, gain, semitones, delay frames, feedback, mix), FFT size selector (512&ndash;4096) and window function selector (Hann/Hamming/Blackman/Rectangular), bypass toggle for pass-through mode, status indicator and event log; JS fallback mode using native `AnalyserNode` when WASM package not built (shows fallback notice with build instructions); `build.sh` script wrapping `wasm-pack build --target no-modules --features wasm` for AudioWorklet compatibility; `README.md` with architecture documentation, build/run instructions, browser compatibility notes (Chrome 66+, Firefox 76+), message protocol specification, and file listing; `.gitignore` excluding generated `pkg/` directory; works with both Chrome and Firefox; completes Phase 7 (Polish &amp; Web Readiness) with all 6 issues done &mdash; **all 29 issues across all 7 phases now complete**
 - **Completed #27** (compile fourier-core to WASM target) &mdash; added `wasm` feature flag to `fourier-core` Cargo.toml with optional `wasm-bindgen` dependency; added `wasm-bindgen = "0.2"` to workspace dependencies; created `crates/core/src/wasm.rs` module gated behind `#[cfg(feature = "wasm")]` with comprehensive `wasm_bindgen` wrapper types for all core DSP operations; `WasmFftProcessor` with `forward()` and `inverse()` methods using interleaved `[re, im, …]` format for JS `Float32Array` interop; `WasmOscillator` with string-based waveform selection (`"sine"`, `"square"`, `"sawtooth"`, `"triangle"`), `generate(num_samples)` returning `Vec<f32>`, and getter/setter properties; `WasmNoiseGenerator` with string-based noise type (`"white"`, `"pink"`); `WasmWindowFunction` with `apply()`, `table()`, and `coherentGain` getter; `WasmTransform` with static factory methods (`identity()`, `lowPass()`, `highPass()`, `bandPass()`, `gain()`, `pitchShift()`, `spectralFreeze()`, `spectralDelay()`) wrapping the `SpectralTransform` trait behind a single JS-friendly type; `WasmAdditiveSynth` with harmonic series constructor and `fromPartials()` for custom partial data; `WasmOverlapAddProcessor` for streaming FFT-based spectral processing with configurable transform; free functions `magnitudeSpectrum()`, `magnitudeSpectrumDb()`, `binToFrequency()`, `frequencyToBin()` for spectral analysis utilities; all wrappers use `JsError` for error reporting; `cargo build --target wasm32-unknown-unknown -p fourier-core --features wasm` succeeds; no `std` dependencies that break WASM; zero clippy warnings; all 112 existing tests pass unchanged; example HTML+JS FFT roundtrip demo in `examples/wasm-fft/index.html` with spectrum visualization, wasm-pack instructions, and JS fallback mode
 - **Completed #10** (spectral delay effect) &mdash; created `SpectralDelay` struct implementing `SpectralTransform` in `crates/core/src/transform.rs`; stores past spectral frames in a ring buffer and mixes delayed spectrum with current input; parameters: `delay_frames: usize` (number of spectral frames to delay, &ge;1), `feedback: f32` (clamped to 0.0&ndash;0.95, feeds output back into delay line for decaying repetitions), `mix: f32` (clamped to 0.0&ndash;1.0, dry/wet blend); lazy ring buffer initialization on first `process()` call (adapts to any FFT size); output formula: `output = dry * (1-mix) + delayed * mix`; delay line stores `input + delayed * feedback` for each frame; ring buffer wraps correctly with modular arithmetic; `TransformSpec::SpectralDelay { delay_frames, feedback, mix }` variant in `crates/engine/src/params.rs` with full serde support; wired into `build_transform()` in `processor.rs`; re-exported `SpectralDelay` from `fourier-core` and `fourier-engine` crate roots; TypeScript `SpectralDelay` variant added to `TransformSpec` type in `app/src/bindings.ts`; `<TransformPanel />` updated with "Spectral Delay" option and controls: frames slider (1&ndash;64), feedback slider (0&ndash;95%), mix slider (0&ndash;100%) in both single and chain modes; 9 new unit tests in `fourier-core`: delay delays spectrum, dry/wet mix, feedback produces decay, ring buffer wraps, feedback clamped, mix clamped, zero delay frames clamped, name, empty spectrum no panic; 3 new serde roundtrip tests in `fourier-engine`: SpectralDelay spec, in-chain, param message; 2 engine integration tests: spectral delay produces output with oscillator source, rapid parameter switching does not panic; all 275 tests pass; completes Phase 3 (Enhanced DSP) with all 4 issues done
