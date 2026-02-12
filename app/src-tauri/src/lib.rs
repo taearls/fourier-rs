@@ -454,6 +454,7 @@ fn export_audio(
     duration_secs: f32,
     sample_rate: u32,
     fft_size: usize,
+    source_file_path: Option<String>,
 ) -> Result<(), String> {
     if duration_secs < 0.0 {
         return Err("Duration must be non-negative".to_string());
@@ -466,6 +467,22 @@ fn export_audio(
             "fft_size must be a power of 2 and at least 4, got {fft_size}"
         ));
     }
+
+    // For AudioBuffer sources, reload the WAV from disk so the offline
+    // renderer has access to the actual audio data (the Arc<AudioBuffer>
+    // cannot cross the IPC boundary).
+    let source = if let (SourceSpec::AudioBuffer { looping, .. }, Some(ref file_path)) =
+        (&source, &source_file_path)
+    {
+        let buffer = fourier_file_io::load_wav(Path::new(file_path))
+            .map_err(|e| format!("Failed to load source WAV \"{file_path}\": {e}"))?;
+        SourceSpec::AudioBuffer {
+            buffer: Some(Arc::new(buffer)),
+            looping: *looping,
+        }
+    } else {
+        source
+    };
 
     let sample_rate_f = sample_rate as f32;
     let total_frames = compute_total_frames(&source, sample_rate_f, duration_secs);

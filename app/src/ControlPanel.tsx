@@ -1,4 +1,4 @@
-import { createSignal, onCleanup, Show, type Component } from "solid-js";
+import { createSignal, Show, type Component } from "solid-js";
 import { open, save } from "@tauri-apps/plugin-dialog";
 import {
   startEngine,
@@ -320,6 +320,7 @@ const ControlPanel: Component = () => {
           exportDuration(),
           DEFAULT_SAMPLE_RATE,
           DEFAULT_FFT_SIZE,
+          filePath(),
         );
       } finally {
         unlisten();

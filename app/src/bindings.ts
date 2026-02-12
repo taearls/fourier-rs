@@ -325,6 +325,9 @@ export interface ExportProgress {
  * @param durationSecs - Duration in seconds (used for generated sources).
  * @param sampleRate - Sample rate in Hz (e.g. 44100).
  * @param fftSize - FFT size for spectral processing (e.g. 2048).
+ * @param sourceFilePath - Path to source WAV file (for AudioBuffer sources).
+ *   The backend reloads the file so the offline renderer has access to the
+ *   actual audio data.
  */
 export function exportAudio(
   path: string,
@@ -334,6 +337,7 @@ export function exportAudio(
   durationSecs: number,
   sampleRate: number,
   fftSize: number,
+  sourceFilePath?: string | null,
 ): Promise<void> {
   return invoke("export_audio", {
     path,
@@ -343,6 +347,7 @@ export function exportAudio(
     durationSecs,
     sampleRate,
     fftSize,
+    sourceFilePath: sourceFilePath ?? null,
   });
 }
 
