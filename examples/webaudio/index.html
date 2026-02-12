@@ -261,11 +261,17 @@ wasm-pack build --target no-modules --features wasm --out-dir ../../examples/web
     // -----------------------------------------------------------------------
     // Logging
     // -----------------------------------------------------------------------
+    const LOG_MAX_ENTRIES = 100;
+
     function log(msg, level = 'info') {
       const span = document.createElement('div');
       span.className = level;
       span.textContent = `[${new Date().toLocaleTimeString()}] ${msg}`;
       logEl.appendChild(span);
+      // Evict oldest entries to prevent unbounded DOM growth.
+      while (logEl.children.length > LOG_MAX_ENTRIES) {
+        logEl.removeChild(logEl.firstChild);
+      }
       logEl.scrollTop = logEl.scrollHeight;
     }
 
@@ -335,7 +341,7 @@ wasm-pack build --target no-modules --features wasm --out-dir ../../examples/web
     }
 
     async function startWithWasm() {
-      const fftSize = parseInt(selFftSize.value);
+      const fftSize = parseInt(selFftSize.value, 10);
       const windowType = selWindow.value;
 
       // Load the no-modules WASM glue into a blob URL so the worklet can importScripts it.
@@ -423,7 +429,7 @@ wasm-pack build --target no-modules --features wasm --out-dir ../../examples/web
     function startWithFallback() {
       // JS fallback: use AnalyserNode for visualization, pass audio through.
       fallbackAnalyser = audioContext.createAnalyser();
-      fallbackAnalyser.fftSize = parseInt(selFftSize.value);
+      fallbackAnalyser.fftSize = parseInt(selFftSize.value, 10);
       fallbackAnalyser.smoothingTimeConstant = 0.8;
 
       sourceNode.connect(fallbackAnalyser);
@@ -477,16 +483,23 @@ wasm-pack build --target no-modules --features wasm --out-dir ../../examples/web
       workletNode.port.postMessage({ type: 'setTransform', transform: transformType, params });
     }
 
+    // Read a log-scaled frequency slider: slider value 0–1000 → Hz 20–20000.
+    function readLogFreq(id, fallback) {
+      const el = document.getElementById(id);
+      if (!el) return fallback;
+      return Math.round(logMap(parseFloat(el.value) / 1000, 20, 20000));
+    }
+
     function getTransformParams(transformType) {
       switch (transformType) {
         case 'lowPass':
-          return { cutoff: parseFloat(document.getElementById('param-cutoff')?.value || 2000) };
+          return { cutoff: readLogFreq('param-cutoff', 2000) };
         case 'highPass':
-          return { cutoff: parseFloat(document.getElementById('param-cutoff')?.value || 200) };
+          return { cutoff: readLogFreq('param-cutoff', 200) };
         case 'bandPass':
           return {
-            low: parseFloat(document.getElementById('param-low')?.value || 200),
-            high: parseFloat(document.getElementById('param-high')?.value || 2000),
+            low: readLogFreq('param-low', 200),
+            high: readLogFreq('param-high', 2000),
           };
         case 'gain':
           return { gain: parseFloat(document.getElementById('param-gain')?.value || 1.0) };
@@ -494,7 +507,7 @@ wasm-pack build --target no-modules --features wasm --out-dir ../../examples/web
           return { semitones: parseFloat(document.getElementById('param-semitones')?.value || 0) };
         case 'spectralDelay':
           return {
-            delayFrames: parseInt(document.getElementById('param-delay-frames')?.value || 4),
+            delayFrames: parseInt(document.getElementById('param-delay-frames')?.value || 4, 10),
             feedback: parseFloat(document.getElementById('param-feedback')?.value || 0.5),
             mix: parseFloat(document.getElementById('param-mix')?.value || 0.5),
           };
@@ -503,10 +516,16 @@ wasm-pack build --target no-modules --features wasm --out-dir ../../examples/web
       }
     }
 
+    // Logarithmic mapping helpers for frequency sliders.
+    // Slider position (0–1) maps to log-space between min and max Hz.
+    const logMap = (pos, min, max) => min * Math.pow(max / min, pos);
+    const logUnmap = (val, min, max) => Math.log(val / min) / Math.log(max / min);
+
     function buildTransformUI(transformType) {
       transformParams.innerHTML = '';
 
-      const makeSlider = (id, label, min, max, value, step, unit) => {
+      const makeSlider = (id, label, min, max, value, step, unit, opts = {}) => {
+        const isLog = !!opts.logScale;
         const group = document.createElement('div');
         group.className = 'control-group';
         const lbl = document.createElement('label');
@@ -521,18 +540,32 @@ wasm-pack build --target no-modules --features wasm --out-dir ../../examples/web
         const input = document.createElement('input');
         input.type = 'range';
         input.id = id;
-        input.min = min;
-        input.max = max;
-        input.value = value;
-        input.step = step;
-        input.addEventListener('input', () => {
-          display.textContent = `${parseFloat(input.value).toFixed(step < 1 ? 1 : 0)} ${unit}`;
-          sendTransform();
-        });
+        if (isLog) {
+          // Slider operates on normalized 0–1000 range, mapped logarithmically.
+          input.min = 0;
+          input.max = 1000;
+          input.value = Math.round(logUnmap(value, min, max) * 1000);
+          input.step = 1;
+        } else {
+          input.min = min;
+          input.max = max;
+          input.value = value;
+          input.step = step;
+        }
+
+        const formatValue = (v) => `${parseFloat(v).toFixed(step < 1 ? 1 : 0)} ${unit}`;
 
         const display = document.createElement('span');
         display.className = 'value-display';
-        display.textContent = `${parseFloat(value).toFixed(step < 1 ? 1 : 0)} ${unit}`;
+        display.textContent = formatValue(value);
+
+        input.addEventListener('input', () => {
+          const displayVal = isLog
+            ? Math.round(logMap(parseFloat(input.value) / 1000, min, max))
+            : parseFloat(input.value);
+          display.textContent = formatValue(displayVal);
+          sendTransform();
+        });
 
         row.appendChild(input);
         row.appendChild(display);
@@ -542,14 +575,14 @@ wasm-pack build --target no-modules --features wasm --out-dir ../../examples/web
 
       switch (transformType) {
         case 'lowPass':
-          makeSlider('param-cutoff', 'Cutoff', 20, 20000, 2000, 1, 'Hz');
+          makeSlider('param-cutoff', 'Cutoff', 20, 20000, 2000, 1, 'Hz', { logScale: true });
           break;
         case 'highPass':
-          makeSlider('param-cutoff', 'Cutoff', 20, 20000, 200, 1, 'Hz');
+          makeSlider('param-cutoff', 'Cutoff', 20, 20000, 200, 1, 'Hz', { logScale: true });
           break;
         case 'bandPass':
-          makeSlider('param-low', 'Low', 20, 20000, 200, 1, 'Hz');
-          makeSlider('param-high', 'High', 20, 20000, 2000, 1, 'Hz');
+          makeSlider('param-low', 'Low', 20, 20000, 200, 1, 'Hz', { logScale: true });
+          makeSlider('param-high', 'High', 20, 20000, 2000, 1, 'Hz', { logScale: true });
           break;
         case 'gain':
           makeSlider('param-gain', 'Gain', 0, 3, 1.0, 0.1, 'x');
@@ -629,7 +662,7 @@ wasm-pack build --target no-modules --features wasm --out-dir ../../examples/web
 
       let magDb = null;
       let sr = 48000;
-      let fftSz = parseInt(selFftSize.value);
+      let fftSz = parseInt(selFftSize.value, 10);
 
       if (latestSpectrum && wasmAvailable) {
         // WASM spectrum: interleaved [re, im, ...]. Convert to dB magnitudes.
@@ -688,9 +721,9 @@ wasm-pack build --target no-modules --features wasm --out-dir ../../examples/web
     }
 
     function clearCanvas() {
-      const dpr = window.devicePixelRatio || 1;
-      const rect = spectrumCanvas.getBoundingClientRect();
-      spectrumCtx.clearRect(0, 0, rect.width * dpr, rect.height * dpr);
+      // Reset transform to identity so clearRect uses buffer pixel coordinates.
+      spectrumCtx.setTransform(1, 0, 0, 1, 0, 0);
+      spectrumCtx.clearRect(0, 0, spectrumCanvas.width, spectrumCanvas.height);
     }
 
     // -----------------------------------------------------------------------
