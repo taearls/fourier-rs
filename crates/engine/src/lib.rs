@@ -7,12 +7,14 @@
 //! Also routes MIDI events and exposes a high-level API for the UI layer.
 
 pub mod error;
+pub mod export;
 pub mod params;
 pub mod preset;
 pub mod processor;
 pub mod source;
 
 pub use error::EngineError;
+pub use export::{compute_total_frames, render_offline, RenderConfig};
 pub use fourier_core::{
     AdditiveSynth, BandType, EqBand, NoiseGenerator, PitchShift, SpectralFreeze, WaveformType,
 };

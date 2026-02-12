@@ -214,7 +214,7 @@ impl Drop for Engine {
 }
 
 /// Build a concrete `SpectralTransform` from a `TransformSpec`.
-fn build_transform(
+pub fn build_transform(
     spec: &TransformSpec,
     sample_rate: f32,
     hop_size: usize,

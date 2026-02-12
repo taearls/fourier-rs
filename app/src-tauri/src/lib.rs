@@ -6,15 +6,16 @@ use std::path::{Path, PathBuf};
 use std::sync::{Arc, Mutex};
 
 use serde::Serialize;
-use tauri::State;
+use tauri::{AppHandle, Emitter, State};
 
 use fourier_audio_io::stream::StreamConfig;
 use fourier_audio_io::{
     default_input_device, default_output_device, list_input_devices, list_output_devices,
 };
 use fourier_engine::{
-    factory_presets, Engine, EngineError, NoiseType, Preset, PresetInfo, SourceSpec,
-    SpectralSnapshot, TransformSpec, WaveformSnapshot, WaveformType,
+    compute_total_frames, factory_presets, render_offline, Engine, EngineError, NoiseType, Preset,
+    PresetInfo, RenderConfig, SourceSpec, SpectralSnapshot, TransformSpec, WaveformSnapshot,
+    WaveformType,
 };
 
 // ---------------------------------------------------------------------------
@@ -60,6 +61,13 @@ pub struct DeviceInfo {
     pub name: String,
     pub is_input: bool,
     pub is_output: bool,
+}
+
+/// Progress payload emitted during audio export.
+#[derive(Debug, Clone, Serialize)]
+struct ExportProgress {
+    /// Progress as a fraction from 0.0 to 1.0.
+    progress: f32,
 }
 
 // ---------------------------------------------------------------------------
@@ -423,6 +431,88 @@ fn seek_source(state: State<'_, AppState>, position: f32) -> Result<(), String> 
 }
 
 // ---------------------------------------------------------------------------
+// Audio export command
+// ---------------------------------------------------------------------------
+
+/// Export processed audio to a WAV file.
+///
+/// Runs an offline render (faster than real-time) using the specified source,
+/// transform, and gain settings. Emits `export-progress` events to the
+/// frontend with a `{ progress: f32 }` payload (0.0 to 1.0).
+///
+/// For file sources, the entire buffer is rendered (ignoring `duration_secs`).
+/// For generated sources (oscillator, noise, additive), renders the specified
+/// duration. Does **not** interrupt live audio playback.
+#[tauri::command]
+#[allow(clippy::needless_pass_by_value, clippy::too_many_arguments)]
+fn export_audio(
+    app: AppHandle,
+    path: String,
+    source: SourceSpec,
+    transform: TransformSpec,
+    gain: f32,
+    duration_secs: f32,
+    sample_rate: u32,
+    fft_size: usize,
+    source_file_path: Option<String>,
+) -> Result<(), String> {
+    if duration_secs < 0.0 {
+        return Err("Duration must be non-negative".to_string());
+    }
+    if sample_rate == 0 {
+        return Err("Sample rate must be positive".to_string());
+    }
+    if !fft_size.is_power_of_two() || fft_size < 4 {
+        return Err(format!(
+            "fft_size must be a power of 2 and at least 4, got {fft_size}"
+        ));
+    }
+
+    // For AudioBuffer sources, reload the WAV from disk so the offline
+    // renderer has access to the actual audio data (the Arc<AudioBuffer>
+    // cannot cross the IPC boundary).
+    let source = if let (SourceSpec::AudioBuffer { looping, .. }, Some(ref file_path)) =
+        (&source, &source_file_path)
+    {
+        let buffer = fourier_file_io::load_wav(Path::new(file_path))
+            .map_err(|e| format!("Failed to load source WAV \"{file_path}\": {e}"))?;
+        SourceSpec::AudioBuffer {
+            buffer: Some(Arc::new(buffer)),
+            looping: *looping,
+        }
+    } else {
+        source
+    };
+
+    let sample_rate_f = sample_rate as f32;
+    let total_frames = compute_total_frames(&source, sample_rate_f, duration_secs);
+
+    if total_frames == 0 {
+        return Err("Nothing to export: 0 frames".to_string());
+    }
+
+    let config = RenderConfig {
+        sample_rate: sample_rate_f,
+        fft_size,
+        output_gain: gain,
+    };
+
+    let samples = render_offline(&source, &transform, &config, total_frames, |pct| {
+        let _ = app.emit("export-progress", ExportProgress { progress: pct });
+    });
+
+    // Build an AudioBuffer and save to WAV.
+    let buffer = fourier_file_io::AudioBuffer {
+        samples,
+        sample_rate,
+        channels: 1,
+    };
+
+    fourier_file_io::save_wav(Path::new(&path), &buffer, fourier_file_io::WavFormat::I16)
+        .map_err(|e| format!("Failed to write WAV file: {e}"))
+}
+
+// ---------------------------------------------------------------------------
 // Preset commands
 // ---------------------------------------------------------------------------
 
@@ -629,6 +719,7 @@ pub fn run() {
             set_source_noise,
             set_source_file,
             seek_source,
+            export_audio,
             save_preset,
             load_preset,
             list_presets,

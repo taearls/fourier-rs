@@ -741,3 +741,69 @@ input[type="range"]::-moz-range-thumb {
 input[type="range"]::-moz-range-thumb:hover {
   background: #8b5cf6;
 }
+
+/* ---------- Export panel ---------- */
+
+.cp-export {
+  gap: 8px;
+}
+
+.cp-export-duration {
+  width: 80px;
+  font-family: inherit;
+  font-size: 0.75rem;
+  padding: 3px 6px;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  background: var(--bg);
+  color: var(--fg);
+  font-variant-numeric: tabular-nums;
+}
+
+.cp-export-duration:focus {
+  outline: none;
+  border-color: var(--accent);
+}
+
+.cp-export-btn {
+  width: 100%;
+  padding: 6px 12px;
+  font-weight: 600;
+}
+
+.cp-export-btn:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
+.cp-export-progress {
+  position: relative;
+  width: 100%;
+  height: 18px;
+  background: rgba(255, 255, 255, 0.06);
+  border-radius: 4px;
+  overflow: hidden;
+}
+
+.cp-export-progress-bar {
+  position: absolute;
+  top: 0;
+  left: 0;
+  height: 100%;
+  background: var(--accent);
+  opacity: 0.6;
+  transition: width 0.15s ease;
+  border-radius: 4px;
+}
+
+.cp-export-progress-text {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.65rem;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  color: var(--fg);
+}
