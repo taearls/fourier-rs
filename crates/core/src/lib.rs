@@ -11,6 +11,8 @@ pub mod oscillator;
 pub mod overlap_add;
 pub mod spectral;
 pub mod transform;
+#[cfg(feature = "wasm")]
+pub mod wasm;
 pub mod window;
 
 // Re-export key types at crate root for convenience.
