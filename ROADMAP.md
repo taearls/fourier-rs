@@ -211,7 +211,7 @@ The following capabilities already exist in the codebase:
 
 > **Goal:** Connect the existing MIDI crate to the engine and UI
 >
-> **Effort:** ~8 days &bull; **Status:** :construction: In Progress
+> **Effort:** ~8 days &bull; **Status:** :clipboard: Planned
 
 | # | Title | Priority | Effort | Dependencies |
 |---|-------|----------|--------|--------------|
@@ -233,7 +233,7 @@ The following capabilities already exist in the codebase:
 
 > **Goal:** New spectral transforms for creative sound design
 >
-> **Effort:** ~10 days &bull; **Status:** :construction: In Progress
+> **Effort:** ~10 days &bull; **Status:** :clipboard: Planned
 
 | # | Title | Priority | Effort | Dependencies |
 |---|-------|----------|--------|--------------|
@@ -256,7 +256,7 @@ The following capabilities already exist in the codebase:
 
 > **Goal:** Multiple simultaneous sources with mixer controls
 >
-> **Effort:** ~8 days &bull; **Status:** :construction: In Progress
+> **Effort:** ~8 days &bull; **Status:** :clipboard: Planned
 
 | # | Title | Priority | Effort | Dependencies |
 |---|-------|----------|--------|--------------|
@@ -277,7 +277,7 @@ The following capabilities already exist in the codebase:
 
 > **Goal:** Quality-of-life improvements for daily use
 >
-> **Effort:** ~8 days &bull; **Status:** :construction: In Progress
+> **Effort:** ~8 days &bull; **Status:** :clipboard: Planned
 
 | # | Title | Priority | Effort | Dependencies |
 |---|-------|----------|--------|--------------|
@@ -300,7 +300,7 @@ The following capabilities already exist in the codebase:
 
 > **Goal:** Ship the app as a real product
 >
-> **Effort:** ~6 days &bull; **Status:** :construction: In Progress
+> **Effort:** ~6 days &bull; **Status:** :clipboard: Planned
 
 | # | Title | Priority | Effort | Dependencies |
 |---|-------|----------|--------|--------------|
@@ -368,7 +368,67 @@ These can proceed independently alongside MIDI integration:
 
 ### Phases 1-7 (Complete) :white_check_mark:
 
-All 29 issues across phases 1-7 have been completed. See phase sections above for details.
+<details>
+<summary>Batches 1-7 &mdash; 29 issues completed (click to expand)</summary>
+
+#### Batch 1: Foundations (Week 1)
+| Order | Issue | Rationale |
+|-------|-------|-----------|
+| ~~1~~ | ~~#30 Dev infrastructure~~ | ~~Establish linting, formatting, CI before new code~~ :white_check_mark: |
+| ~~2~~ | ~~#2 Oscillator module~~ | ~~Unblocks all sound generation~~ :white_check_mark: |
+| ~~3~~ | ~~#5 Engine source integration~~ | ~~Connects generators to pipeline~~ :white_check_mark: |
+| ~~4~~ | ~~#3 Noise generators~~ | ~~Parallel with #5, simple module~~ :white_check_mark: |
+
+#### Batch 2: File I/O + DSP (Week 2)
+| Order | Issue | Rationale |
+|-------|-------|-----------|
+| ~~5~~ | ~~#6 WAV reading~~ | ~~Unblocks file playback~~ :white_check_mark: |
+| ~~6~~ | ~~#7 WAV writing~~ | ~~Small addition to #6~~ :white_check_mark: |
+| ~~7~~ | ~~#9 Parametric EQ~~ | ~~Key DSP feature~~ :white_check_mark: |
+| ~~8~~ | ~~#4 Additive synthesis~~ | ~~Depends on #2, enriches sources~~ :white_check_mark: |
+
+#### Batch 3: App Shell (Week 3)
+| Order | Issue | Rationale |
+|-------|-------|-----------|
+| ~~9~~ | ~~#13 Tauri scaffold~~ | ~~Unblocks all frontend work~~ :white_check_mark: |
+| ~~10~~ | ~~#22 Serde serialization~~ | ~~Needed for Tauri IPC~~ :white_check_mark: |
+| ~~11~~ | ~~#25 Error handling~~ | ~~Clean up before more code~~ :white_check_mark: |
+| ~~12~~ | ~~#8 Audio file source~~ | ~~Depends on #5, #6~~ :white_check_mark: |
+
+#### Batch 4: Engine Commands (Week 4)
+| Order | Issue | Rationale |
+|-------|-------|-----------|
+| ~~13~~ | ~~#14 Engine lifecycle commands~~ | ~~Core Tauri API~~ :white_check_mark: |
+| ~~14~~ | ~~#15 Spectral streaming~~ | ~~Enables visualization~~ :white_check_mark: |
+| ~~15~~ | ~~#16 Source selection commands~~ | ~~Enables source UI~~ :white_check_mark: |
+
+#### Batch 5: UI (Weeks 5-6)
+| Order | Issue | Rationale |
+|-------|-------|-----------|
+| ~~16~~ | ~~#17 Spectrum analyzer (WebGL)~~ | ~~Flagship visualization~~ :white_check_mark: |
+| ~~17~~ | ~~#19 Transport/source control panel~~ | ~~Core user interaction~~ :white_check_mark: |
+| ~~18~~ | ~~#18 Waveform display~~ | ~~Second visualization~~ :white_check_mark: |
+| ~~19~~ | ~~#20 Transform control panel~~ | ~~Effect parameter UI~~ :white_check_mark: |
+| ~~20~~ | ~~#21 Note detection display~~ | ~~Tuner feature~~ :white_check_mark: |
+
+#### Batch 6: Workflow + DSP Extras (Week 7)
+| Order | Issue | Rationale |
+|-------|-------|-----------|
+| ~~21~~ | ~~#23 Preset system~~ | ~~UX polish~~ :white_check_mark: |
+| ~~22~~ | ~~#24 Audio export~~ | ~~Render to file~~ :white_check_mark: |
+| ~~23~~ | ~~#11 Spectral freeze~~ | ~~Creative effect~~ :white_check_mark: |
+| ~~24~~ | ~~#12 Pitch shifting~~ | ~~Creative effect~~ :white_check_mark: |
+
+#### Batch 7: Polish + Web (Week 8)
+| Order | Issue | Rationale |
+|-------|-------|-----------|
+| ~~25~~ | ~~#10 Spectral delay~~ | ~~Niche effect~~ :white_check_mark: |
+| ~~26~~ | ~~#26 CI pipeline~~ | ~~Stable + nightly matrix, caching~~ :white_check_mark: |
+| ~~27~~ | ~~#51 Optimize CI workflow~~ | ~~Drop nightly, reduce overhead~~ :white_check_mark: |
+| ~~28~~ | ~~#27 WASM compilation~~ | ~~Web readiness~~ :white_check_mark: |
+| ~~29~~ | ~~#28 WebAudio integration~~ | ~~Browser demo~~ :white_check_mark: |
+
+</details>
 
 ### Batch 8: MIDI Data Path (Weeks 9-10)
 | Order | Issue | Rationale |
